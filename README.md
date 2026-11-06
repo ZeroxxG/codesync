@@ -1,38 +1,126 @@
 # CodeSync
 
-A real-time collaborative code editor. Multiple users edit the same file at once with live
-cursors, then run the code safely in an isolated sandbox with output streamed to everyone
-in the room.
+A real-time collaborative code editor with sandboxed execution. Multiple users edit the same code file simultaneously with live cursors and selections, then execute the code in an isolated container sandbox with real-time streamed output.
 
-> Work in progress. This README is a skeleton; the agent fills in each section as the
-> matching phase is completed (see `docs/PROGRESS.md`).
-
-## Features (planned)
-- Real-time editing with Yjs (CRDT) and Monaco Editor
-- Live cursors, selections and presence
-- Rooms with owner / editor / viewer roles and read-only share links
-- Sandboxed code execution (Docker, no network, resource limits) with streamed output
-- Horizontally scalable realtime layer over Redis pub/sub
+---
 
 ## Architecture
-_Add a Mermaid diagram here in Phase 1 and update it as services are added._
 
-## Quick start
-_Add after Phase 1: prerequisites, `cp .env.example .env`, `make dev`._
+```mermaid
+flowchart TD
+    subgraph Clients["Browsers (Monaco + Yjs)"]
+        U1["User 1 (Alice)"]
+        U2["User 2 (Bob)"]
+        U3["User 3 (Charlie)"]
+    end
 
-## Tech stack
-React, TypeScript, Vite, Monaco, Yjs, Node.js, Hocuspocus, Django, Django REST Framework,
-Celery, Redis, PostgreSQL, Docker, GitHub Actions.
+    subgraph Frontend["Frontend Tier (Vite + React)"]
+        Web["apps/web (:5173)"]
+    end
 
-## Key design decisions
-_Summarize from `docs/DESIGN.md` once it exists._
+    subgraph RealtimeTier["Realtime Collaboration Tier"]
+        Hocus["apps/realtime (:1234)<br/>Node.js + Hocuspocus"]
+    end
 
-## Security
-_Summarize the sandbox controls and link to `docs/SECURITY.md` after Phase 3._
+    subgraph APITier["Business Logic & Persistence"]
+        API["apps/api (:8000)<br/>Django + DRF"]
+        DB[("PostgreSQL (:5432)")]
+    end
 
-## Benchmarks
-_Summarize real measured results and link to `docs/BENCHMARKS.md` after Phase 4._
+    subgraph ExecutionTier["Sandboxed Execution (Phase 3)"]
+        Redis[("Redis (:6379)<br/>Broker & Pub/Sub")]
+        Runner["apps/runner<br/>Celery Worker + Docker"]
+    end
 
-## Docs
-- [Project brief](docs/PROJECT_BRIEF.md)
-- [Progress log](docs/PROGRESS.md)
+    U1 & U2 & U3 -->|HTTP/REST| Web
+    Web -->|Proxy /api| API
+    U1 & U2 & U3 <-->|WebSocket Yjs Sync & Awareness| Hocus
+    API <-->|SQL Queries| DB
+    API -.->|Task Dispatch| Redis
+    Redis -.->|Consume Job| Runner
+    Runner -.->|Publish Output| Redis
+    Redis -.->|Subscribe Output| Hocus
+    Hocus -.->|Internal Auth & Snapshots| API
+```
+
+---
+
+## Features
+
+### Phase 1: Collaboration Core (Complete)
+- **Real-time Collaborative Editing**: Conflict-free text synchronization via Yjs CRDT and Monaco editor bindings (`y-monaco`).
+- **Live Remote Cursors & Selections**: Peer awareness with deterministic user color assignments and remote cursor name tags.
+- **Synchronized Language Selector**: Multi-language support (Python, JavaScript, C++) with instant CRDT map synchronization.
+- **Room Management**: Create rooms and share unique link slugs via Django REST API.
+- **Automated Convergence Testing**: Deterministic multi-client Yjs suite testing concurrent out-of-order edits.
+
+### Upcoming Phases
+- **Phase 2**: JWT Authentication, Room Roles (owner/editor/viewer), and Yjs Snapshot Persistence.
+- **Phase 3**: Sandboxed Docker code execution with real-time streamed terminal output.
+- **Phase 4**: Multi-instance horizontal scaling, load balancing, and benchmarks.
+- **Phase 5**: Polish, themes, keyboard shortcuts, and AI error analysis.
+
+---
+
+## Quick Start (Local Development)
+
+### Prerequisites
+- Docker & Docker Compose
+- Node.js 20+ (with `pnpm`)
+- Python 3.12+
+
+### 1. Setup Environment
+```bash
+cp .env.example .env
+```
+
+### 2. Start Infrastructure
+```bash
+make dev-infra
+# Starts PostgreSQL (5432) and Redis (6379)
+```
+
+### 3. Run Services
+
+**Terminal 1 (Django API):**
+```bash
+cd apps/api
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver 0.0.0.0:8000
+```
+
+**Terminal 2 (Realtime Collaboration Service):**
+```bash
+cd apps/realtime
+pnpm install
+pnpm dev
+# Listens on ws://localhost:1234
+```
+
+**Terminal 3 (Vite Web App):**
+```bash
+cd apps/web
+pnpm install
+pnpm dev
+# Opens at http://localhost:5173
+```
+
+---
+
+## Testing
+
+```bash
+# Run realtime convergence tests (Vitest)
+cd apps/realtime && pnpm test
+
+# Run API test suite (pytest)
+cd apps/api && pytest
+```
+
+---
+
+## Key Design Decisions
+- **CRDT (Yjs) over OT**: Strong eventual consistency without central transform coordinator; robust offline/reconnection merge.
+- **Stateless Realtime Tier**: Decoupled Node.js Hocuspocus service handles WebSocket broadcast with minimal memory overhead while Django owns business logic and database models.
+- *Read the full design rationale in [docs/DESIGN.md](docs/DESIGN.md).*
