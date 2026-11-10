@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Copy, Check, Terminal, Play, ArrowLeft } from "lucide-react";
+import { Copy, Check, Play, ArrowLeft } from "lucide-react";
 import { createYjsSession, YjsSession } from "../lib/yjsClient";
 import { getUserColor } from "../lib/colors";
 import Editor from "../components/Editor";

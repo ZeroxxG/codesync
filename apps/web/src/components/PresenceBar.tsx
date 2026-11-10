@@ -22,8 +22,11 @@ export const PresenceBar: React.FC<PresenceBarProps> = ({
   const [users, setUsers] = useState<PresenceUser[]>([]);
 
   useEffect(() => {
+    const awareness = provider.awareness;
+    if (!awareness) return;
+
     const updateUsers = () => {
-      const states = provider.awareness.getStates();
+      const states = awareness.getStates();
       const userList: PresenceUser[] = [];
       const styleId = "yjs-dynamic-cursors";
 
@@ -75,10 +78,10 @@ export const PresenceBar: React.FC<PresenceBarProps> = ({
     };
 
     updateUsers();
-    provider.awareness.on("change", updateUsers);
+    awareness.on("change", updateUsers);
 
     return () => {
-      provider.awareness.off("change", updateUsers);
+      awareness.off("change", updateUsers);
       const styleEl = document.getElementById("yjs-dynamic-cursors");
       if (styleEl) {
         styleEl.remove();

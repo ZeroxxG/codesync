@@ -36,11 +36,13 @@ export function createYjsSession(options: CreateYjsSessionOptions): YjsSession {
   });
 
   // Set initial awareness state for cursors & presence
-  provider.awareness.setLocalStateField("user", {
-    name: userName,
-    color: userColor.color,
-    colorLight: userColor.light,
-  });
+  if (provider.awareness) {
+    provider.awareness.setLocalStateField("user", {
+      name: userName,
+      color: userColor.color,
+      colorLight: userColor.light,
+    });
+  }
 
   return {
     doc,
