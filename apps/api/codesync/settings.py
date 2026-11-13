@@ -167,3 +167,14 @@ INTERNAL_API_TOKEN = os.environ.get("INTERNAL_API_TOKEN", "codesync-internal-tok
 if not INTERNAL_API_TOKEN or INTERNAL_API_TOKEN == "CHANGE_ME":
     INTERNAL_API_TOKEN = "codesync-internal-token-change-in-prod"
 MAX_DOCUMENT_BYTES = int(os.environ.get("MAX_DOCUMENT_BYTES", "1048576"))
+
+# Celery and Redis configuration
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", REDIS_URL)
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", REDIS_URL)
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+
