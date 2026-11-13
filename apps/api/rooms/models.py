@@ -1,5 +1,6 @@
 import secrets
 import uuid
+from django.conf import settings
 from django.db import models
 
 
@@ -7,11 +8,28 @@ def generate_room_slug() -> str:
     return secrets.token_urlsafe(6)
 
 
+def generate_viewer_token() -> str:
+    return secrets.token_urlsafe(24)
+
+
 class Room(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=120)
     slug = models.SlugField(max_length=32, unique=True, default=generate_room_slug, editable=False)
     language = models.CharField(max_length=32, default="python")
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="owned_rooms",
+    )
+    viewer_token = models.CharField(
+        max_length=64,
+        unique=True,
+        default=generate_viewer_token,
+        editable=False,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -20,3 +38,58 @@ class Room(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} ({self.slug})"
+
+    def refresh_viewer_token(self) -> str:
+        self.viewer_token = generate_viewer_token()
+        self.save(update_fields=["viewer_token", "updated_at"])
+        return self.viewer_token
+
+
+class RoomMembership(models.Model):
+    class Role(models.TextChoices):
+        OWNER = "owner", "Owner"
+        EDITOR = "editor", "Editor"
+        VIEWER = "viewer", "Viewer"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="room_memberships",
+    )
+    room = models.ForeignKey(
+        Room,
+        on_delete=models.CASCADE,
+        related_name="memberships",
+    )
+    role = models.CharField(
+        max_length=16,
+        choices=Role.choices,
+        default=Role.EDITOR,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "room"], name="unique_user_room_membership"),
+        ]
+        ordering = ["created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.user} - {self.room.name} ({self.role})"
+
+
+class RoomSnapshot(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    room = models.OneToOneField(
+        Room,
+        on_delete=models.CASCADE,
+        related_name="snapshot",
+    )
+    data = models.BinaryField()
+    size_bytes = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return f"Snapshot for {self.room.name} ({self.size_bytes} bytes)"
