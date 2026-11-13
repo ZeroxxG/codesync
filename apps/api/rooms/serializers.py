@@ -33,6 +33,7 @@ class AddMemberSerializer(serializers.Serializer):
 class RoomSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source="owner.username", read_only=True, default=None)
     current_user_role = serializers.SerializerMethodField()
+    viewer_token = serializers.SerializerMethodField()
 
     class Meta:
         model = Room
@@ -44,10 +45,20 @@ class RoomSerializer(serializers.ModelSerializer):
             "owner",
             "owner_username",
             "current_user_role",
+            "viewer_token",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "slug", "owner", "owner_username", "current_user_role", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "slug",
+            "owner",
+            "owner_username",
+            "current_user_role",
+            "viewer_token",
+            "created_at",
+            "updated_at",
+        ]
 
     def get_current_user_role(self, obj: Room) -> str:
         request = self.context.get("request")
@@ -71,6 +82,12 @@ class RoomSerializer(serializers.ModelSerializer):
             return "editor"
 
         return "none"
+
+    def get_viewer_token(self, obj: Room) -> str | None:
+        role = self.get_current_user_role(obj)
+        if role in ("owner", "editor", "viewer"):
+            return obj.viewer_token
+        return None
 
     def validate_language(self, value: str) -> str:
         allowed = {"python", "javascript", "cpp"}

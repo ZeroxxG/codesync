@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Play, ArrowLeft, Share2, Eye, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Play, ArrowLeft, Share2, Eye, ShieldAlert, ShieldCheck, LogIn } from "lucide-react";
 import { createYjsSession, YjsSession } from "../lib/yjsClient";
 import { getUserColor } from "../lib/colors";
 import { useAuth } from "../contexts/AuthContext";
@@ -7,6 +7,7 @@ import Editor from "../components/Editor";
 import PresenceBar from "../components/PresenceBar";
 import LanguageSelector from "../components/LanguageSelector";
 import ShareModal from "../components/ShareModal";
+import AuthModal from "../components/AuthModal";
 
 interface RoomPageProps {
   roomSlug: string;
@@ -21,6 +22,7 @@ interface RoomData {
   language: string;
   current_user_role: "owner" | "editor" | "viewer" | "none";
   owner_username?: string;
+  viewer_token?: string;
 }
 
 export const RoomPage: React.FC<RoomPageProps> = ({
@@ -34,6 +36,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [connectionStatus, setConnectionStatus] = useState<string>("connecting");
   const [viewerToken, setViewerToken] = useState<string | undefined>(undefined);
   const [shareModalOpen, setShareModalOpen] = useState<boolean>(false);
+  const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,6 +66,10 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         if (mounted) {
           setRoom(data);
           setCurrentLanguage(data.language || "python");
+          if (data.viewer_token) {
+            setViewerToken(data.viewer_token);
+          }
+          setError(null);
           setLoading(false);
         }
       })
@@ -86,7 +93,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     return () => {
       mounted = false;
     };
-  }, [roomSlug, queryViewerToken]);
+  }, [roomSlug, queryViewerToken, accessToken]);
 
   // Create Yjs doc & provider session
   const [session, setSession] = useState<YjsSession | null>(null);
@@ -130,18 +137,41 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   }
 
   if (error || !session) {
+    const isAccessDenied = error?.toLowerCase().includes("access denied");
+
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 text-slate-300 gap-4 p-4 text-center">
         <div className="w-12 h-12 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center">
           <ShieldAlert className="w-6 h-6" />
         </div>
-        <p className="text-rose-400 font-semibold">{error || "Could not connect to session"}</p>
-        <button
-          onClick={onLeaveRoom}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Home
-        </button>
+        <div className="max-w-md space-y-1">
+          <p className="text-rose-400 font-semibold">{error || "Could not connect to session"}</p>
+          {isAccessDenied && (
+            <p className="text-xs text-slate-400">
+              This room is private. You must sign in to an authorized account to collaborate, or use the read-only share link provided by the room owner.
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-3 mt-2">
+          {isAccessDenied && !user && (
+            <button
+              onClick={() => setAuthModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <LogIn className="w-4 h-4" /> Sign In / Register
+            </button>
+          )}
+          <button
+            onClick={onLeaveRoom}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm transition-colors text-slate-300"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to Home
+          </button>
+        </div>
+        <AuthModal
+          isOpen={authModalOpen}
+          onClose={() => setAuthModalOpen(false)}
+        />
       </div>
     );
   }
@@ -231,7 +261,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         onClose={() => setShareModalOpen(false)}
         roomSlug={roomSlug}
         roomName={room?.name || "CodeSync"}
-        viewerToken={viewerToken || queryViewerToken}
+        viewerToken={viewerToken || room?.viewer_token || queryViewerToken}
         isOwner={isOwner}
         onRefreshViewerToken={isOwner ? handleRefreshViewerToken : undefined}
       />
