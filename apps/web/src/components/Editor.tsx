@@ -34,6 +34,15 @@ export const Editor: React.FC<EditorProps> = ({ doc, provider, language, readOnl
   };
 
   useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.updateOptions({
+        readOnly,
+        cursorBlinking: readOnly ? "solid" : "smooth",
+      });
+    }
+  }, [readOnly]);
+
+  useEffect(() => {
     return () => {
       if (bindingRef.current) {
         bindingRef.current.destroy();

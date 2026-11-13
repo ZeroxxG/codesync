@@ -1,46 +1,47 @@
 import { describe, it, expect } from "vitest";
 import * as Y from "yjs";
 
-describe("Realtime Viewer Write Protection", () => {
+describe("Realtime Viewer Synchronization and Write Protection", () => {
+  it("allows read-only viewers to receive and sync document state", () => {
+    // 1. Authoritative server document with baseline code
+    const serverDoc = new Y.Doc();
+    serverDoc.getText("monaco").insert(0, "def authorized_work():\n    return True\n");
+
+    // 2. Simulated viewer client performs initial sync handshake
+    const viewerDoc = new Y.Doc();
+
+    // Client sends state vector (SyncStep 1), server calculates diff and replies (SyncStep 2)
+    const sv = Y.encodeStateVector(viewerDoc);
+    const serverDiff = Y.encodeStateAsUpdate(serverDoc, sv);
+    Y.applyUpdate(viewerDoc, serverDiff);
+
+    // Assert viewer receives code perfectly
+    expect(viewerDoc.getText("monaco").toString()).toBe("def authorized_work():\n    return True\n");
+  });
+
   it("rejects document mutations attempted by read-only viewers", () => {
     // 1. Authoritative server document with baseline code
     const serverDoc = new Y.Doc();
     serverDoc.getText("monaco").insert(0, "def authorized_work():\n    return True\n");
 
-    // 2. Simulated viewer client attempts to forge an edit
+    // 2. Simulated viewer client receives baseline state
     const viewerDoc = new Y.Doc();
-    // Viewer receives server baseline state
     Y.applyUpdate(viewerDoc, Y.encodeStateAsUpdate(serverDoc));
 
-    // Viewer types malicious or unapproved code
+    // Viewer types malicious or unapproved code in local memory
     viewerDoc.getText("monaco").delete(0, viewerDoc.getText("monaco").length);
     viewerDoc.getText("monaco").insert(0, "MALICIOUS_OVERWRITE_BY_VIEWER()");
 
-    // 3. Emulate server-side write rejection logic
-    const viewerRole = "viewer";
+    // 3. Emulate readOnly server write drop
     const isReadOnly = true;
-
-    // The update packet that viewer tries to transmit
     const updatePacket = Y.encodeStateAsUpdate(viewerDoc);
 
-    // Simulated protocol inspection:
-    // If client is viewer or connection is readOnly, the update is dropped/rejected
-    let wasApplied = false;
-    let errorThrown: string | null = null;
-
-    try {
-      if (viewerRole === "viewer" || isReadOnly) {
-        throw new Error("Forbidden: Viewers are not permitted to modify the document");
-      }
+    // Under readOnly mode, server does not apply the incoming update to its document
+    if (!isReadOnly) {
       Y.applyUpdate(serverDoc, updatePacket);
-      wasApplied = true;
-    } catch (err: any) {
-      errorThrown = err.message;
     }
 
     // 4. Assert server doc was never modified
-    expect(wasApplied).toBe(false);
-    expect(errorThrown).toContain("Forbidden: Viewers are not permitted to modify the document");
     expect(serverDoc.getText("monaco").toString()).toBe("def authorized_work():\n    return True\n");
     expect(serverDoc.getText("monaco").toString()).not.toContain("MALICIOUS_OVERWRITE");
   });

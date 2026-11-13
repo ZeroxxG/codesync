@@ -7,6 +7,7 @@ interface LanguageSelectorProps {
   roomSlug: string;
   initialLanguage?: string;
   onLanguageChange?: (lang: string) => void;
+  readOnly?: boolean;
 }
 
 const LANGUAGES = [
@@ -20,14 +21,15 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   roomSlug,
   initialLanguage = "python",
   onLanguageChange,
+  readOnly = false,
 }) => {
   const [currentLang, setCurrentLang] = useState<string>(initialLanguage);
 
   useEffect(() => {
     const metaMap = doc.getMap("room-meta");
 
-    // Initialize map if unset
-    if (!metaMap.get("language") && initialLanguage) {
+    // Initialize map if unset and user has write permissions
+    if (!metaMap.get("language") && initialLanguage && !readOnly) {
       metaMap.set("language", initialLanguage);
     } else if (metaMap.get("language")) {
       const existing = metaMap.get("language") as string;
@@ -45,9 +47,10 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
     return () => {
       metaMap.unobserve(observer);
     };
-  }, [doc, initialLanguage, onLanguageChange]);
+  }, [doc, initialLanguage, onLanguageChange, readOnly]);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (readOnly) return;
     const newLang = e.target.value;
     const metaMap = doc.getMap("room-meta");
     metaMap.set("language", newLang);
@@ -65,13 +68,16 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-2 bg-slate-900/80 border border-slate-800 rounded-md px-2.5 py-1 text-xs">
+    <div className={`flex items-center gap-2 bg-slate-900/80 border border-slate-800 rounded-md px-2.5 py-1 text-xs ${readOnly ? "opacity-75" : ""}`}>
       <Code2 className="w-4 h-4 text-slate-400" />
       <span className="text-slate-400 font-medium">Language:</span>
       <select
         value={currentLang}
         onChange={handleChange}
-        className="bg-transparent text-slate-200 font-semibold focus:outline-none cursor-pointer border-none py-0 pl-1 pr-6"
+        disabled={readOnly}
+        className={`bg-transparent text-slate-200 font-semibold focus:outline-none border-none py-0 pl-1 pr-6 ${
+          readOnly ? "cursor-not-allowed text-slate-400" : "cursor-pointer"
+        }`}
       >
         {LANGUAGES.map((lang) => (
           <option key={lang.id} value={lang.id} className="bg-slate-900 text-slate-200">

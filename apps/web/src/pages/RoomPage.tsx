@@ -188,6 +188,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
             roomSlug={roomSlug}
             initialLanguage={room?.language || "python"}
             onLanguageChange={(lang) => setCurrentLanguage(lang)}
+            readOnly={isReadOnly}
           />
 
           <PresenceBar

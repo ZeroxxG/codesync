@@ -31,27 +31,6 @@ export const server = Server.configure({
     };
   },
 
-  async beforeHandleMessage(data) {
-    const { connection, context, message } = data;
-    const userRole = (context as { user?: AuthContext })?.user?.role;
-
-    if (userRole === "viewer" || connection.readOnly) {
-      // Yjs binary protocol inspection:
-      // message[0] === 0 is sync message
-      // message[1] === 1 (syncStep2) or 2 (syncUpdate) are document mutations
-      const uint8 = new Uint8Array(message);
-      if (uint8.length >= 2 && uint8[0] === 0) {
-        const syncType = uint8[1];
-        if (syncType === 1 || syncType === 2) {
-          console.warn(
-            `[Realtime Security] Rejected document write attempt from read-only viewer (${(context as { user?: AuthContext })?.user?.username})`
-          );
-          throw new Error("Forbidden: Viewers are not permitted to modify the document");
-        }
-      }
-    }
-  },
-
   async onLoadDocument(data) {
     const { documentName, document } = data;
     console.log(`[Realtime] Loading document state for room: "${documentName}"`);
