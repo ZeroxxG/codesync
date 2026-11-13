@@ -5,6 +5,8 @@ export interface CreateYjsSessionOptions {
   roomSlug: string;
   userName: string;
   userColor: { color: string; light: string };
+  token?: string | null;
+  viewerToken?: string | null;
   onStatusChange?: (status: string) => void;
 }
 
@@ -15,7 +17,7 @@ export interface YjsSession {
 }
 
 export function createYjsSession(options: CreateYjsSessionOptions): YjsSession {
-  const { roomSlug, userName, userColor, onStatusChange } = options;
+  const { roomSlug, userName, userColor, token, viewerToken, onStatusChange } = options;
 
   const doc = new Y.Doc();
 
@@ -23,13 +25,17 @@ export function createYjsSession(options: CreateYjsSessionOptions): YjsSession {
     (import.meta as any).env?.VITE_REALTIME_URL ||
     `ws://${window.location.hostname}:1234`;
 
+  const parameters: Record<string, string> = {
+    user: userName,
+  };
+  if (token) parameters.token = token;
+  if (viewerToken) parameters.viewer_token = viewerToken;
+
   const provider = new HocuspocusProvider({
     url: realtimeUrl,
     name: roomSlug,
     document: doc,
-    parameters: {
-      user: userName,
-    },
+    parameters,
     onStatus: ({ status }) => {
       onStatusChange?.(status);
     },

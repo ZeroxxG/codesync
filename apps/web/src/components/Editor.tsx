@@ -9,9 +9,10 @@ interface EditorProps {
   doc: Y.Doc;
   provider: HocuspocusProvider;
   language: string;
+  readOnly?: boolean;
 }
 
-export const Editor: React.FC<EditorProps> = ({ doc, provider, language }) => {
+export const Editor: React.FC<EditorProps> = ({ doc, provider, language, readOnly = false }) => {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const bindingRef = useRef<MonacoBinding | null>(null);
 
@@ -21,7 +22,7 @@ export const Editor: React.FC<EditorProps> = ({ doc, provider, language }) => {
     const yText = doc.getText("monaco");
     const model = editorInstance.getModel();
 
-    if (model) {
+    if (model && provider.awareness) {
       // Bind Yjs CRDT model with Monaco editor
       bindingRef.current = new MonacoBinding(
         yText,
@@ -48,11 +49,12 @@ export const Editor: React.FC<EditorProps> = ({ doc, provider, language }) => {
         language={language === "cpp" ? "cpp" : language}
         theme="vs-dark"
         options={{
+          readOnly,
           fontSize: 14,
           fontFamily: "'Fira Code', 'Cascadia Code', Consolas, monospace",
           minimap: { enabled: true },
           smoothScrolling: true,
-          cursorBlinking: "smooth",
+          cursorBlinking: readOnly ? "solid" : "smooth",
           automaticLayout: true,
           tabSize: 2,
           wordWrap: "on",
