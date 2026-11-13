@@ -54,10 +54,17 @@ flowchart TD
 - **Room Management**: Create rooms and share unique link slugs via Django REST API.
 - **Automated Convergence Testing**: Deterministic multi-client Yjs suite testing concurrent out-of-order edits.
 
+### Phase 2: Auth, Permissions, Persistence & Presence (Complete)
+- **JWT Authentication**: Register, login, refresh, logout with token blacklisting and user profile endpoints.
+- **Role-Based Access Control**: Owner, editor, and viewer roles enforced on both REST API and WebSocket connection.
+- **Read-Only Share Links**: Tokenized guest links allowing view-only access without an account.
+- **Server-Side Write Rejection**: Two-layer enforcement (connection-level `readOnly` + binary frame inspection) dropping unauthorized document updates.
+- **Debounced Yjs State Persistence**: Automatic 3-second debounced binary snapshots saved to PostgreSQL with 1 MB document size limits.
+
 ### Upcoming Phases
-- **Phase 2**: JWT Authentication, Room Roles (owner/editor/viewer), and Yjs Snapshot Persistence.
 - **Phase 3**: Sandboxed Docker code execution with real-time streamed terminal output.
 - **Phase 4**: Multi-instance horizontal scaling, load balancing, and benchmarks.
+- **Phase 5**: Polish, themes, keyboard shortcuts, and AI error analysis.
 - **Phase 5**: Polish, themes, keyboard shortcuts, and AI error analysis.
 
 ---
