@@ -17,9 +17,6 @@ When building real-time collaborative text editors, there are two primary paradi
 - **Yjs Performance & Memory Optimization**: Historically, academic CRDTs suffered from severe memory overhead (tombstones for every deleted character). Yjs solves this through a doubly-linked list of item blocks with run-length encoding. Sequential keystrokes are merged into single chunk structs, achieving memory overhead competitive with plain strings (~1-2 bytes per character in practical typing workloads) and sub-millisecond local update processing.
 - **Ecosystem Maturity**: Yjs provides mature bindings for the Monaco editor (`y-monaco`), robust awareness protocol support (`y-protocols`), and binary state compression.
 
-### Trade-offs & Mitigations
-- *Document growth over time*: Deleted text leaves tombstones in CRDT history. We mitigate this in Phase 2 with debounced snapshotting into PostgreSQL, periodically compacting the document history into fresh snapshots when all active clients disconnect.
-
 ---
 
 ## 2. Why a Separate Node.js Realtime Service (not Django Channels)
@@ -55,10 +52,26 @@ Monaco cursor movements generate high-frequency events (`onDidChangeCursorPositi
 
 ---
 
-## 4. Document Size Cap and Snapshot Debouncing
-*(Detailed specifications to be expanded in Phase 2)*
-- Max document payload is capped at 1 MB to prevent memory exhaustion.
-- Yjs state is debounced by 3000 ms before saving snapshot to Django internal endpoint.
+## 4. Document Persistence, Debouncing & Size Limits (Phase 2)
+
+### 4.1 Debounced Snapshotting
+In an active collaborative coding session with multiple participants typing simultaneously, writing to PostgreSQL on every keystroke would create hundreds of disk writes per second, saturating database connection pools and degrading performance.
+- **Debounced Save Window (`SNAPSHOT_DEBOUNCE_MS=3000`)**: Changes emitted during typing reset a 3-second timer. Only after typing pauses for 3 seconds (or when the document is unloaded / clients disconnect) is a single combined snapshot written to Django via `PUT /internal/rooms/{id}/snapshot/`.
+- **Raw Binary Storage**: The document state is encoded into Yjs binary update format (`Y.encodeStateAsUpdate(doc)`) and stored in a PostgreSQL `BinaryField` (`bytea`). This avoids serialization overhead to JSON and preserves Yjs internal state vectors.
+- **Strict Size Cap (`MAX_DOCUMENT_BYTES=1048576`, 1 MB)**: Single source code files rarely exceed 1 MB. Capping snapshot writes protects both the Node process heap and PostgreSQL storage from malicious memory bloat or fork bombs.
+
+### 4.2 Server-Side Viewer Protection
+A critical security requirement is that users with `viewer` role (or anonymous guests via read-only share links) cannot modify the document. Client-side editor disables (`readOnly: true` in Monaco) are purely cosmetic and can be bypassed by an adversary sending raw WebSocket frames.
+- **Two-Layer Server Rejection**:
+  1. **Connection-level flag**: In `onAuthenticate`, when a viewer connects, `data.connection.readOnly = true` is set on the Hocuspocus connection.
+  2. **Binary Packet Inspection**: In `beforeHandleMessage`, the realtime service intercepts incoming binary frames. Yjs message protocol byte 0 denotes a sync message, and byte 1 denotes message subtype (`1 = syncStep2`, `2 = update`). Any mutation frame from a viewer is rejected immediately with an authorization error before touching the memory `Y.Doc`.
+
+### 4.3 Service-to-Service Isolation
+The realtime service contains no database credentials and never connects directly to PostgreSQL.
+- All persistence and role lookups route through Django internal endpoints (`/internal/rooms/{id}/snapshot/` and `/role/`).
+- Protected by a preshared `INTERNAL_API_TOKEN` header. These endpoints are internal-only and inaccessible to public clients.
+
+---
 
 ## 5. Scaling Strategy
 *(Detailed specifications to be expanded in Phase 4)*
