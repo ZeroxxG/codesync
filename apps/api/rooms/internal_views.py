@@ -8,7 +8,7 @@ from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import Room, RoomMembership, RoomSnapshot
+from .models import Room, RoomMembership, RoomSnapshot, Run
 
 User = get_user_model()
 
@@ -214,3 +214,64 @@ class InternalRoomSnapshotView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class InternalRunCallbackView(APIView):
+    """
+    PUT /internal/runs/<uuid:run_id>/
+    Callback endpoint used by apps/runner to update run status, exit code,
+    duration, and execution output, and release the active room lock.
+    """
+
+    permission_classes = [HasInternalServiceToken]
+
+    def get(self, request: Request, run_id: uuid.UUID) -> Response:
+        run = get_object_or_404(Run, id=run_id)
+        from .serializers import RunSerializer
+        return Response(RunSerializer(run).data, status=status.HTTP_200_OK)
+
+    def put(self, request: Request, run_id: uuid.UUID) -> Response:
+        run = get_object_or_404(Run, id=run_id)
+
+        status_val = request.data.get("status")
+        if status_val:
+            if status_val not in Run.Status.values:
+                return Response(
+                    {"error": f"Invalid status: {status_val}. Must be one of: {list(Run.Status.values)}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            run.status = status_val
+
+        if "exit_code" in request.data:
+            run.exit_code = request.data.get("exit_code")
+
+        if "duration_ms" in request.data:
+            run.duration_ms = request.data.get("duration_ms")
+
+        if "output" in request.data:
+            out = str(request.data.get("output") or "")
+            max_bytes = 65536
+            if len(out) > max_bytes:
+                out = out[:max_bytes] + "\n[Output truncated at 64KB]"
+            run.output = out
+
+        run.save()
+
+        # If run reached a terminal state, release the room lock in Redis
+        if run.status in (
+            Run.Status.COMPLETED,
+            Run.Status.FAILED,
+            Run.Status.TIMEOUT,
+            Run.Status.OOM,
+        ):
+            try:
+                import redis
+                redis_url = getattr(settings, "REDIS_URL", "redis://localhost:6379/0")
+                client = redis.from_url(redis_url)
+                client.delete(f"room:{run.room.slug}:running_lock")
+            except Exception:
+                pass
+
+        from .serializers import RunSerializer
+        return Response(RunSerializer(run).data, status=status.HTTP_200_OK)
+

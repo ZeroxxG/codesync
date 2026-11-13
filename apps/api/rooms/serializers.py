@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import Room, RoomMembership
+from .models import Room, RoomMembership, Run
 
 User = get_user_model()
 
@@ -131,3 +131,49 @@ class CreateRoomSerializer(serializers.ModelSerializer):
         if cleaned not in allowed:
             raise serializers.ValidationError(f"Language must be one of: {', '.join(sorted(allowed))}")
         return cleaned
+
+
+class RunSerializer(serializers.ModelSerializer):
+    room_slug = serializers.CharField(source="room.slug", read_only=True)
+    user_username = serializers.CharField(source="user.username", read_only=True, default=None)
+
+    class Meta:
+        model = Run
+        fields = [
+            "id",
+            "room_slug",
+            "user",
+            "user_username",
+            "language",
+            "code_hash",
+            "status",
+            "exit_code",
+            "duration_ms",
+            "output",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "room_slug",
+            "user",
+            "user_username",
+            "code_hash",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class CreateRunSerializer(serializers.Serializer):
+    code = serializers.CharField(required=True, allow_blank=False, max_length=65536)
+    language = serializers.CharField(required=False, max_length=32, default=None)
+
+    def validate_language(self, value: str | None) -> str | None:
+        if not value:
+            return None
+        allowed = {"python", "javascript", "cpp"}
+        cleaned = value.lower().strip()
+        if cleaned not in allowed:
+            raise serializers.ValidationError(f"Language must be one of: {', '.join(sorted(allowed))}")
+        return cleaned
+
