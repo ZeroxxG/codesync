@@ -1,8 +1,13 @@
 import { Server } from "@hocuspocus/server";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import { AuthContext, verifyRoomAccess } from "./auth.js";
 import { debounceRoomSave, flushRoomSave, loadRoomSnapshot } from "./persistence.js";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 dotenv.config();
 
 const port = Number(process.env.REALTIME_PORT || 1234);
@@ -14,12 +19,26 @@ export const server = Server.configure({
     const { token, requestParameters, documentName } = data;
     const jwtToken = token || requestParameters.get("token") || undefined;
     const viewerToken = requestParameters.get("viewer_token") || undefined;
+    const editorToken = requestParameters.get("editor_token") || undefined;
+    const inviteToken =
+      editorToken ||
+      viewerToken ||
+      requestParameters.get("invite_token") ||
+      requestParameters.get("invite") ||
+      undefined;
     const displayName = requestParameters.get("user") || undefined;
 
-    const authContext = await verifyRoomAccess(documentName, jwtToken, viewerToken, displayName);
+    const authContext = await verifyRoomAccess(
+      documentName,
+      jwtToken,
+      inviteToken,
+      displayName
+    );
 
     if (authContext.role === "viewer") {
       data.connection.readOnly = true;
+    } else {
+      data.connection.readOnly = false;
     }
 
     console.log(

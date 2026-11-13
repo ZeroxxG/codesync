@@ -1,7 +1,10 @@
 import * as Y from "yjs";
 
 const internalApiUrl = process.env.INTERNAL_API_URL || "http://localhost:8000";
-const internalToken = process.env.INTERNAL_API_TOKEN || "codesync-internal-token-change-in-prod";
+const getInternalToken = () => {
+  const token = process.env.INTERNAL_API_TOKEN || "codesync-internal-token-change-in-prod";
+  return token === "CHANGE_ME" ? "codesync-internal-token-change-in-prod" : token;
+};
 const debounceMs = Number(process.env.SNAPSHOT_DEBOUNCE_MS || 3000);
 const maxBytes = Number(process.env.MAX_DOCUMENT_BYTES || 1048576);
 
@@ -14,7 +17,7 @@ export async function loadRoomSnapshot(documentName: string, doc: Y.Doc): Promis
     const res = await fetch(url, {
       method: "GET",
       headers: {
-        "X-Internal-Token": internalToken,
+        "X-Internal-Token": getInternalToken(),
       },
     });
 
@@ -59,7 +62,7 @@ export async function saveRoomSnapshot(documentName: string, doc: Y.Doc): Promis
     const res = await fetch(url, {
       method: "PUT",
       headers: {
-        "X-Internal-Token": internalToken,
+        "X-Internal-Token": getInternalToken(),
         "Content-Type": "application/octet-stream",
       },
       body: stateUpdate,

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import MonacoEditor, { OnMount } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 import { MonacoBinding } from "y-monaco";
@@ -15,22 +15,11 @@ interface EditorProps {
 export const Editor: React.FC<EditorProps> = ({ doc, provider, language, readOnly = false }) => {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const bindingRef = useRef<MonacoBinding | null>(null);
+  const [editorReady, setEditorReady] = useState(false);
 
   const handleEditorDidMount: OnMount = (editorInstance) => {
     editorRef.current = editorInstance;
-
-    const yText = doc.getText("monaco");
-    const model = editorInstance.getModel();
-
-    if (model && provider.awareness) {
-      // Bind Yjs CRDT model with Monaco editor
-      bindingRef.current = new MonacoBinding(
-        yText,
-        model,
-        new Set([editorInstance]),
-        provider.awareness
-      );
-    }
+    setEditorReady(true);
   };
 
   useEffect(() => {
@@ -42,14 +31,41 @@ export const Editor: React.FC<EditorProps> = ({ doc, provider, language, readOnl
     }
   }, [readOnly]);
 
+  // Bind Monaco to Y.Doc "monaco" CRDT text once both are ready
   useEffect(() => {
+    if (!editorReady || !editorRef.current || !doc || !provider) {
+      return;
+    }
+
+    const editorInstance = editorRef.current;
+    const model = editorInstance.getModel();
+    if (!model) return;
+
+    // Clean up any stale binding before re-attaching
+    if (bindingRef.current) {
+      bindingRef.current.destroy();
+      bindingRef.current = null;
+    }
+
+    const yText = doc.getText("monaco");
+    const awareness = provider.awareness;
+
+    if (awareness) {
+      bindingRef.current = new MonacoBinding(
+        yText,
+        model,
+        new Set([editorInstance]),
+        awareness
+      );
+    }
+
     return () => {
       if (bindingRef.current) {
         bindingRef.current.destroy();
         bindingRef.current = null;
       }
     };
-  }, []);
+  }, [editorReady, doc, provider]);
 
   return (
     <div className="relative w-full h-full min-h-[500px] border border-slate-800 rounded-lg overflow-hidden bg-[#1e1e1e]">

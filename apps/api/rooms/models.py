@@ -12,6 +12,10 @@ def generate_viewer_token() -> str:
     return secrets.token_urlsafe(24)
 
 
+def generate_editor_token() -> str:
+    return secrets.token_urlsafe(24)
+
+
 class Room(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=120)
@@ -30,6 +34,13 @@ class Room(models.Model):
         default=generate_viewer_token,
         editable=False,
     )
+    editor_token = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        default=generate_editor_token,
+        editable=False,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -43,6 +54,11 @@ class Room(models.Model):
         self.viewer_token = generate_viewer_token()
         self.save(update_fields=["viewer_token", "updated_at"])
         return self.viewer_token
+
+    def refresh_editor_token(self) -> str:
+        self.editor_token = generate_editor_token()
+        self.save(update_fields=["editor_token", "updated_at"])
+        return self.editor_token
 
 
 class RoomMembership(models.Model):

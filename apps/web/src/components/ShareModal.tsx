@@ -17,6 +17,7 @@ interface ShareModalProps {
   roomSlug: string;
   roomName: string;
   viewerToken?: string;
+  editorToken?: string;
   isOwner: boolean;
   onRefreshViewerToken?: () => Promise<string>;
 }
@@ -27,6 +28,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   roomSlug,
   roomName,
   viewerToken,
+  editorToken,
   isOwner,
   onRefreshViewerToken,
 }) => {
@@ -76,7 +78,9 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   if (!isOpen) return null;
 
   const origin = window.location.origin;
-  const editUrl = `${origin}?room=${roomSlug}`;
+  const editUrl = editorToken
+    ? `${origin}?room=${roomSlug}&editor_token=${editorToken}`
+    : `${origin}?room=${roomSlug}`;
   const effectiveToken = currentToken || viewerToken;
   const viewUrl = effectiveToken ? `${origin}?room=${roomSlug}&viewer_token=${effectiveToken}` : "";
 

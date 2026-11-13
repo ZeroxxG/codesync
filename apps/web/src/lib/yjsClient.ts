@@ -7,6 +7,8 @@ export interface CreateYjsSessionOptions {
   userColor: { color: string; light: string };
   token?: string | null;
   viewerToken?: string | null;
+  editorToken?: string | null;
+  inviteToken?: string | null;
   onStatusChange?: (status: string) => void;
 }
 
@@ -17,7 +19,16 @@ export interface YjsSession {
 }
 
 export function createYjsSession(options: CreateYjsSessionOptions): YjsSession {
-  const { roomSlug, userName, userColor, token, viewerToken, onStatusChange } = options;
+  const {
+    roomSlug,
+    userName,
+    userColor,
+    token,
+    viewerToken,
+    editorToken,
+    inviteToken,
+    onStatusChange,
+  } = options;
 
   const doc = new Y.Doc();
 
@@ -30,6 +41,8 @@ export function createYjsSession(options: CreateYjsSessionOptions): YjsSession {
   };
   if (token) parameters.token = token;
   if (viewerToken) parameters.viewer_token = viewerToken;
+  if (editorToken) parameters.editor_token = editorToken;
+  if (inviteToken) parameters.invite_token = inviteToken;
 
   const provider = new HocuspocusProvider({
     url: realtimeUrl,
@@ -38,6 +51,13 @@ export function createYjsSession(options: CreateYjsSessionOptions): YjsSession {
     parameters,
     onStatus: ({ status }) => {
       onStatusChange?.(status);
+    },
+    onAuthenticated: () => {
+      console.log(`[Hocuspocus] Successfully authenticated in room "${roomSlug}"`);
+    },
+    onAuthenticationFailed: ({ reason }) => {
+      console.warn(`[Hocuspocus] Authentication rejected in room "${roomSlug}":`, reason);
+      onStatusChange?.("disconnected");
     },
   });
 

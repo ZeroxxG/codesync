@@ -19,11 +19,14 @@ export function decodeJwtPayload(token: string): { user_id?: number; exp?: numbe
 export async function verifyRoomAccess(
   documentName: string,
   token?: string,
-  viewerToken?: string,
+  inviteToken?: string,
   displayName?: string
 ): Promise<AuthContext> {
   const internalApiUrl = process.env.INTERNAL_API_URL || "http://localhost:8000";
-  const internalToken = process.env.INTERNAL_API_TOKEN || "codesync-internal-token-change-in-prod";
+  let internalToken = process.env.INTERNAL_API_TOKEN || "codesync-internal-token-change-in-prod";
+  if (internalToken === "CHANGE_ME") {
+    internalToken = "codesync-internal-token-change-in-prod";
+  }
 
   let userId: number | undefined;
 
@@ -39,7 +42,11 @@ export async function verifyRoomAccess(
 
   const queryParams = new URLSearchParams();
   if (userId) queryParams.set("user_id", String(userId));
-  if (viewerToken) queryParams.set("viewer_token", viewerToken);
+  if (inviteToken) {
+    queryParams.set("token", inviteToken);
+    queryParams.set("viewer_token", inviteToken);
+    queryParams.set("editor_token", inviteToken);
+  }
 
   const url = `${internalApiUrl}/internal/rooms/${encodeURIComponent(documentName)}/role/?${queryParams.toString()}`;
 

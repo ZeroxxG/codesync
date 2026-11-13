@@ -13,6 +13,15 @@ function MainContent() {
     if (hashMatch) {
       return hashMatch[1];
     }
+    const token =
+      params.get("invite") ||
+      params.get("invite_token") ||
+      params.get("token") ||
+      params.get("viewer_token") ||
+      params.get("editor_token");
+    if (token) {
+      return token;
+    }
     return null;
   });
 
@@ -23,7 +32,13 @@ function MainContent() {
   useEffect(() => {
     const handlePopState = () => {
       const params = new URLSearchParams(window.location.search);
-      const room = params.get("room");
+      const room =
+        params.get("room") ||
+        params.get("invite") ||
+        params.get("invite_token") ||
+        params.get("token") ||
+        params.get("viewer_token") ||
+        params.get("editor_token");
       setCurrentRoom(room);
     };
 

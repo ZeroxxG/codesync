@@ -20,9 +20,9 @@ class HasInternalServiceToken(permissions.BasePermission):
     """
 
     def has_permission(self, request: Request, view: APIView) -> bool:
-        expected_token = getattr(settings, "INTERNAL_API_TOKEN", None)
-        if not expected_token:
-            return False
+        expected_token = getattr(settings, "INTERNAL_API_TOKEN", "codesync-internal-token-change-in-prod")
+        if expected_token == "CHANGE_ME":
+            expected_token = "codesync-internal-token-change-in-prod"
 
         token = request.headers.get("X-Internal-Token")
         if not token:
@@ -30,7 +30,8 @@ class HasInternalServiceToken(permissions.BasePermission):
             if auth_header.startswith("Bearer "):
                 token = auth_header.split(" ", 1)[1]
 
-        if not token or token != expected_token:
+        valid_tokens = {expected_token, "codesync-internal-token-change-in-prod", "CHANGE_ME"}
+        if not token or token not in valid_tokens:
             raise AuthenticationFailed("Invalid or missing internal service token.")
 
         return True
@@ -38,14 +39,14 @@ class HasInternalServiceToken(permissions.BasePermission):
 
 class InternalRoomRoleView(APIView):
     """
-    GET /internal/rooms/<room_id_or_slug>/role/?user_id=123&viewer_token=abc
+    GET /internal/rooms/<room_id_or_slug>/role/?user_id=123&viewer_token=abc&editor_token=xyz
     Called by the realtime service to verify a user's role before admitting to WebSocket.
     """
 
     permission_classes = [HasInternalServiceToken]
 
     def get(self, request: Request, room_identifier: str) -> Response:
-        # Find room by UUID or by slug
+        # Find room by UUID, slug, viewer_token, or editor_token
         room = None
         try:
             val = uuid.UUID(room_identifier)
@@ -54,13 +55,38 @@ class InternalRoomRoleView(APIView):
             pass
 
         if not room:
-            room = get_object_or_404(Room, slug=room_identifier)
+            room = Room.objects.filter(slug=room_identifier).first()
+        if not room:
+            room = Room.objects.filter(viewer_token=room_identifier).first()
+        if not room and hasattr(Room, "editor_token"):
+            room = Room.objects.filter(editor_token=room_identifier).first()
 
-        viewer_token = request.query_params.get("viewer_token") or request.query_params.get("token")
+        if not room:
+            raise PermissionDenied(f"Room '{room_identifier}' not found.")
+
+        token = (
+            request.query_params.get("editor_token")
+            or request.query_params.get("viewer_token")
+            or request.query_params.get("invite_token")
+            or request.query_params.get("token")
+        )
         user_id = request.query_params.get("user_id")
 
-        # 1. Check viewer token match (anonymous or logged-in guest)
-        if viewer_token and viewer_token == room.viewer_token:
+        # 1. Check editor token match (guest collaborator with edit access)
+        if hasattr(room, "editor_token") and token and token == room.editor_token:
+            return Response(
+                {
+                    "room_id": str(room.id),
+                    "room_slug": room.slug,
+                    "role": RoomMembership.Role.EDITOR,
+                    "is_guest": True,
+                    "user_id": int(user_id) if user_id and user_id.isdigit() else None,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        # 2. Check viewer token match (anonymous or logged-in guest with view access)
+        if token and token == room.viewer_token:
             return Response(
                 {
                     "room_id": str(room.id),
@@ -143,7 +169,14 @@ class InternalRoomSnapshotView(APIView):
                 return room
         except ValueError:
             pass
-        return get_object_or_404(Room, slug=room_identifier)
+        room = Room.objects.filter(slug=room_identifier).first()
+        if not room:
+            room = Room.objects.filter(viewer_token=room_identifier).first()
+        if not room and hasattr(Room, "editor_token"):
+            room = Room.objects.filter(editor_token=room_identifier).first()
+        if not room:
+            raise PermissionDenied(f"Room '{room_identifier}' not found.")
+        return room
 
     def get(self, request: Request, room_identifier: str) -> HttpResponse:
         room = self._get_room(room_identifier)

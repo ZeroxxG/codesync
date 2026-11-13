@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Q
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status
 from rest_framework.exceptions import PermissionDenied
@@ -19,8 +20,11 @@ User = get_user_model()
 
 def get_user_room_role(room: Room, user, token: str | None = None) -> str:
     """Helper to determine effective role for user in room."""
-    if token and token == room.viewer_token:
-        return RoomMembership.Role.VIEWER
+    if token:
+        if hasattr(room, "editor_token") and token == room.editor_token:
+            return RoomMembership.Role.EDITOR
+        if token == room.viewer_token:
+            return RoomMembership.Role.VIEWER
 
     if not room.owner_id:
         return RoomMembership.Role.EDITOR
@@ -77,13 +81,30 @@ class RoomListCreateView(APIView):
 
 class RoomDetailView(APIView):
     """
-    GET: Retrieve room by slug (join by link).
+    GET: Retrieve room by slug or token (join by link).
     PATCH: Update room settings (language).
     """
 
     def get(self, request: Request, slug: str) -> Response:
-        room = get_object_or_404(Room, slug=slug)
-        token = request.query_params.get("viewer_token") or request.query_params.get("token")
+        room = Room.objects.filter(slug=slug).first()
+        if not room:
+            room = Room.objects.filter(viewer_token=slug).first()
+        if not room and hasattr(Room, "editor_token"):
+            room = Room.objects.filter(editor_token=slug).first()
+
+        if not room:
+            raise Http404("Room not found")
+
+        token = (
+            request.query_params.get("editor_token")
+            or request.query_params.get("viewer_token")
+            or request.query_params.get("invite_token")
+            or request.query_params.get("token")
+        )
+        if not token:
+            if slug == room.viewer_token or (hasattr(room, "editor_token") and slug == room.editor_token):
+                token = slug
+
         role = get_user_room_role(room, request.user, token)
 
         if role == "none":

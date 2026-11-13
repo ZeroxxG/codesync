@@ -23,6 +23,7 @@ interface RoomData {
   current_user_role: "owner" | "editor" | "viewer" | "none";
   owner_username?: string;
   viewer_token?: string;
+  editor_token?: string;
 }
 
 export const RoomPage: React.FC<RoomPageProps> = ({
@@ -40,10 +41,13 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Extract viewer_token from search params if present
-  const queryViewerToken = useMemo(() => {
+  // Extract all query tokens
+  const queryTokens = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get("viewer_token") || params.get("token") || undefined;
+    const viewerToken = params.get("viewer_token") || undefined;
+    const editorToken = params.get("editor_token") || undefined;
+    const generalToken = params.get("token") || params.get("invite") || params.get("invite_token") || undefined;
+    return { viewerToken, editorToken, generalToken };
   }, []);
 
   const activeDisplayName = user ? user.username : userName;
@@ -52,7 +56,15 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   // Fetch room metadata from Django
   useEffect(() => {
     let mounted = true;
-    const url = `/api/rooms/${roomSlug}/${queryViewerToken ? `?viewer_token=${queryViewerToken}` : ""}`;
+    const tokenQuery = queryTokens.viewerToken
+      ? `viewer_token=${encodeURIComponent(queryTokens.viewerToken)}`
+      : queryTokens.editorToken
+      ? `editor_token=${encodeURIComponent(queryTokens.editorToken)}`
+      : queryTokens.generalToken
+      ? `token=${encodeURIComponent(queryTokens.generalToken)}`
+      : "";
+
+    const url = `/api/rooms/${encodeURIComponent(roomSlug)}/${tokenQuery ? `?${tokenQuery}` : ""}`;
 
     authFetch(url)
       .then((res) => {
@@ -69,6 +81,11 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           if (data.viewer_token) {
             setViewerToken(data.viewer_token);
           }
+          if (roomSlug !== data.slug) {
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set("room", data.slug);
+            window.history.replaceState({}, "", newUrl.toString());
+          }
           setError(null);
           setLoading(false);
         }
@@ -80,31 +97,36 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         }
       });
 
-    // Also fetch viewer token if owner or editor
-    authFetch(`/api/rooms/${roomSlug}/viewer-link/`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.viewer_token && mounted) {
-          setViewerToken(data.viewer_token);
-        }
-      })
-      .catch(() => {});
-
     return () => {
       mounted = false;
     };
-  }, [roomSlug, queryViewerToken, accessToken]);
+  }, [roomSlug, queryTokens, accessToken]);
 
-  // Create Yjs doc & provider session
+  // Create Yjs doc & provider session ONLY after room is verified and room.slug is available!
   const [session, setSession] = useState<YjsSession | null>(null);
 
   useEffect(() => {
+    if (!room?.slug) return;
+
+    const effectiveViewer =
+      viewerToken ||
+      room.viewer_token ||
+      queryTokens.viewerToken ||
+      (room.current_user_role === "viewer" ? queryTokens.generalToken : undefined);
+
+    const effectiveEditor =
+      room.editor_token ||
+      queryTokens.editorToken ||
+      (room.current_user_role === "editor" ? queryTokens.generalToken : undefined);
+
     const s = createYjsSession({
-      roomSlug,
+      roomSlug: room.slug,
       userName: activeDisplayName,
       userColor,
       token: accessToken,
-      viewerToken: queryViewerToken,
+      viewerToken: effectiveViewer,
+      editorToken: effectiveEditor,
+      inviteToken: queryTokens.generalToken,
       onStatusChange: (status) => setConnectionStatus(status),
     });
     setSession(s);
@@ -112,7 +134,17 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     return () => {
       s.destroy();
     };
-  }, [roomSlug, activeDisplayName, userColor, accessToken, queryViewerToken]);
+  }, [
+    room?.slug,
+    activeDisplayName,
+    userColor,
+    accessToken,
+    viewerToken,
+    queryTokens,
+    room?.viewer_token,
+    room?.editor_token,
+    room?.current_user_role,
+  ]);
 
   const handleRefreshViewerToken = async (): Promise<string> => {
     const res = await authFetch(`/api/rooms/${roomSlug}/viewer-link/`, { method: "POST" });
@@ -259,9 +291,10 @@ export const RoomPage: React.FC<RoomPageProps> = ({
       <ShareModal
         isOpen={shareModalOpen}
         onClose={() => setShareModalOpen(false)}
-        roomSlug={roomSlug}
+        roomSlug={room?.slug || roomSlug}
         roomName={room?.name || "CodeSync"}
-        viewerToken={viewerToken || room?.viewer_token || queryViewerToken}
+        viewerToken={viewerToken || room?.viewer_token || queryTokens.viewerToken}
+        editorToken={room?.editor_token || queryTokens.editorToken}
         isOwner={isOwner}
         onRefreshViewerToken={isOwner ? handleRefreshViewerToken : undefined}
       />

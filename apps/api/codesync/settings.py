@@ -162,4 +162,6 @@ SIMPLE_JWT = {
 
 # Service-to-service auth & limits
 INTERNAL_API_TOKEN = os.environ.get("INTERNAL_API_TOKEN", "codesync-internal-token-change-in-prod")
+if not INTERNAL_API_TOKEN or INTERNAL_API_TOKEN == "CHANGE_ME":
+    INTERNAL_API_TOKEN = "codesync-internal-token-change-in-prod"
 MAX_DOCUMENT_BYTES = int(os.environ.get("MAX_DOCUMENT_BYTES", "1048576"))

@@ -34,6 +34,7 @@ class RoomSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source="owner.username", read_only=True, default=None)
     current_user_role = serializers.SerializerMethodField()
     viewer_token = serializers.SerializerMethodField()
+    editor_token = serializers.SerializerMethodField()
 
     class Meta:
         model = Room
@@ -46,6 +47,7 @@ class RoomSerializer(serializers.ModelSerializer):
             "owner_username",
             "current_user_role",
             "viewer_token",
+            "editor_token",
             "created_at",
             "updated_at",
         ]
@@ -56,6 +58,7 @@ class RoomSerializer(serializers.ModelSerializer):
             "owner_username",
             "current_user_role",
             "viewer_token",
+            "editor_token",
             "created_at",
             "updated_at",
         ]
@@ -65,10 +68,18 @@ class RoomSerializer(serializers.ModelSerializer):
         if not request:
             return "viewer"
 
-        # Check query param for viewer token
-        token = request.query_params.get("viewer_token") or request.query_params.get("token")
-        if token and token == obj.viewer_token:
-            return "viewer"
+        # Check query param for editor or viewer token
+        token = (
+            request.query_params.get("editor_token")
+            or request.query_params.get("viewer_token")
+            or request.query_params.get("invite_token")
+            or request.query_params.get("token")
+        )
+        if token:
+            if hasattr(obj, "editor_token") and token == obj.editor_token:
+                return "editor"
+            if token == obj.viewer_token:
+                return "viewer"
 
         if request.user and request.user.is_authenticated:
             if obj.owner_id == request.user.id:
@@ -87,6 +98,12 @@ class RoomSerializer(serializers.ModelSerializer):
         role = self.get_current_user_role(obj)
         if role in ("owner", "editor", "viewer"):
             return obj.viewer_token
+        return None
+
+    def get_editor_token(self, obj: Room) -> str | None:
+        role = self.get_current_user_role(obj)
+        if role in ("owner", "editor"):
+            return getattr(obj, "editor_token", None)
         return None
 
     def validate_language(self, value: str) -> str:
