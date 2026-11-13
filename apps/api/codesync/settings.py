@@ -9,7 +9,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR.parent.parent / ".env")
 load_dotenv(BASE_DIR / ".env")
 
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "codesync-insecure-dev-secret-key-phase1")
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "codesync-insecure-dev-secret-key-32-chars-long!")
+if SECRET_KEY == "CHANGE_ME" or len(SECRET_KEY) < 32:
+    SECRET_KEY = "codesync-insecure-dev-secret-key-32-chars-long!"
 DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() in ("true", "1", "yes")
 
 allowed_hosts_raw = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,api")
