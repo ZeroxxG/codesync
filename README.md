@@ -61,10 +61,17 @@ flowchart TD
 - **Server-Side Write Rejection**: Two-layer enforcement (connection-level `readOnly` + binary frame inspection) dropping unauthorized document updates.
 - **Debounced Yjs State Persistence**: Automatic 3-second debounced binary snapshots saved to PostgreSQL with 1 MB document size limits.
 
+### Phase 3: Sandboxed Code Execution (Complete)
+- **Multi-Language Sandboxed Execution**: Secure Python, JavaScript, and C++ execution in disposable Alpine Docker containers.
+- **Rigorous Container Containment**: Complete network isolation (`network_mode="none"`), read-only rootfs (`read_only=True`), RAM limit (128MB), process limit (`pids_limit=64`), CPU limit (0.5 cores), non-root user (`10001:10001`), and dropped Linux capabilities (`cap_drop=["ALL"]`).
+- **Real-Time Streamed Terminal Output**: Celery runner streams stdout/stderr chunks live over Redis pub/sub (`room:<slug>:runs`) and Hocuspocus stateless messages to room clients.
+- **Interactive Terminal Panel**: Collapsible drawer with exit codes, wall-clock duration, auto-scroll, ANSI formatting, and `Ctrl+Enter` execution shortcut.
+- **Concurrency Locking & Rate Limiting**: Per-room mutex lock (`409 Conflict`) preventing race conditions, 6 runs/min per-user rate limit, and viewer role rejection (`403 Forbidden`).
+- **Adversarial Attack Test Suite**: 8 automated security tests verifying containment against infinite loops, memory bombs, fork bombs, network probes, rootfs writes, and secret leaks.
+- **Stale Container Reaper**: Background daemon sweeping orphaned sandbox containers older than 30s.
+
 ### Upcoming Phases
-- **Phase 3**: Sandboxed Docker code execution with real-time streamed terminal output.
 - **Phase 4**: Multi-instance horizontal scaling, load balancing, and benchmarks.
-- **Phase 5**: Polish, themes, keyboard shortcuts, and AI error analysis.
 - **Phase 5**: Polish, themes, keyboard shortcuts, and AI error analysis.
 
 ---
@@ -87,7 +94,14 @@ make dev-infra
 # Starts PostgreSQL (5432) and Redis (6379)
 ```
 
-### 3. Run Services
+### 3. Build Sandbox Images
+```bash
+docker build -t codesync-sandbox-python:latest docker/sandbox-python
+docker build -t codesync-sandbox-javascript:latest docker/sandbox-javascript
+docker build -t codesync-sandbox-cpp:latest docker/sandbox-cpp
+```
+
+### 4. Run Services
 
 **Terminal 1 (Django API):**
 ```bash
@@ -105,7 +119,14 @@ pnpm dev
 # Listens on ws://localhost:1234
 ```
 
-**Terminal 3 (Vite Web App):**
+**Terminal 3 (Execution Runner Worker):**
+```bash
+cd apps/runner
+pip install -r requirements.txt
+celery -A runner worker -Q runner --loglevel=info
+```
+
+**Terminal 4 (Vite Web App):**
 ```bash
 cd apps/web
 pnpm install
@@ -123,6 +144,9 @@ cd apps/realtime && pnpm test
 
 # Run API test suite (pytest)
 cd apps/api && pytest
+
+# Run Runner adversarial security test suite (pytest)
+cd apps/runner && pytest tests/test_adversarial.py -v
 ```
 
 ---

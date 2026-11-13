@@ -145,3 +145,109 @@ Base URL: `ws://localhost:1234`
 - **Server Enforcement**:
   - `owner` / `editor`: Read-write access.
   - `viewer`: Read-only. Document mutation packets (`syncStep2` and `update`) are actively dropped and rejected by server inspection.
+
+---
+
+## 5. Sandboxed Code Execution Endpoints (`/api/rooms/<slug>/runs/`)
+
+Base URL: `http://localhost:8000/api/rooms/<slug>/runs`
+
+### `POST /api/rooms/<slug>/runs/`
+Queues a code execution job for the room.
+- **Headers / Query Params**: JWT Bearer token or `?editor_token=<token>`.
+- **Permissions**: `owner` or `editor`. `viewer` role rejected with `403 Forbidden`.
+- **Rate Limits**:
+  - Max 6 runs per minute per user (`429 Too Many Requests`).
+  - Max 10 runs per minute per room (`429 Too Many Requests`).
+- **Concurrency Mutex**: Redis key `room:<slug>:running_lock` (15s TTL). Returns `409 Conflict` if another run is currently executing.
+- **Request Body**:
+```json
+{
+  "code": "print('hello from codesync')",
+  "language": "python"
+}
+```
+- **Response**: `201 Created`
+```json
+{
+  "id": "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+  "room_slug": "k7a_9B",
+  "user": 1,
+  "user_username": "alice",
+  "language": "python",
+  "code_hash": "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e",
+  "status": "queued",
+  "exit_code": null,
+  "duration_ms": null,
+  "output": "",
+  "created_at": "...",
+  "updated_at": "..."
+}
+```
+
+### `GET /api/rooms/<slug>/runs/`
+Lists recent execution history for the room (ordered by `-created_at`, limit 20).
+- **Response**: `200 OK` (Array of Run objects).
+
+### `GET /api/rooms/<slug>/runs/<run_id>/`
+Retrieves execution status, wall-clock duration, exit code, and captured output for a specific run.
+- **Response**: `200 OK` (Run object).
+
+---
+
+## 6. Internal Runner Callback Endpoint (`/internal/runs/<run_id>/`)
+
+Base URL: `http://localhost:8000/internal/runs/<run_id>/`
+- **Protected by**: `X-Internal-Token: <INTERNAL_API_TOKEN>`
+- **Method**: `PUT`
+- **Request Body**:
+```json
+{
+  "status": "completed",
+  "exit_code": 0,
+  "duration_ms": 142,
+  "output": "hello from codesync\n"
+}
+```
+- **Response**: `200 OK` (Updates DB record, truncates output at 64KB, and releases Redis room lock `room:<slug>:running_lock`).
+
+---
+
+## 7. Redis Pub/Sub Streaming Protocol
+
+Channel Name Pattern: `room:<slug>:runs`
+
+Messages are published as JSON strings by the runner and relayed to frontend clients via Hocuspocus stateless messages:
+
+1. **Run Start Event**:
+```json
+{
+  "type": "run_start",
+  "run_id": "...",
+  "room_slug": "k7a_9B"
+}
+```
+
+2. **Output Chunk Event**:
+```json
+{
+  "type": "run_output",
+  "run_id": "...",
+  "room_slug": "k7a_9B",
+  "chunk": "hello "
+}
+```
+
+3. **Run Completion Event**:
+```json
+{
+  "type": "run_complete",
+  "run_id": "...",
+  "room_slug": "k7a_9B",
+  "status": "completed",
+  "exit_code": 0,
+  "duration_ms": 142,
+  "output": "hello world\n"
+}
+```
+

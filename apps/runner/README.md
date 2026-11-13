@@ -33,4 +33,4 @@ celery -A runner worker -Q runner --loglevel=info
 pytest
 ```
 
-> **Status:** not started — skeleton only.
+> **Status:** Complete — container executor, Celery worker, Redis streaming, adversarial test suite, and reaper daemon implemented.
