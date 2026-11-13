@@ -72,7 +72,38 @@ class InternalRoomRoleView(APIView):
         )
         user_id = request.query_params.get("user_id")
 
-        # 1. Check editor token match (guest collaborator with edit access)
+        # 1. If user_id is provided, check if user is the room owner or a member
+        if user_id and user_id.isdigit():
+            uid = int(user_id)
+            user = User.objects.filter(id=uid, is_active=True).first()
+            if user:
+                if room.owner_id == user.id:
+                    return Response(
+                        {
+                            "room_id": str(room.id),
+                            "room_slug": room.slug,
+                            "role": RoomMembership.Role.OWNER,
+                            "is_guest": False,
+                            "user_id": user.id,
+                            "username": user.username,
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+                membership = room.memberships.filter(user=user).first()
+                if membership:
+                    return Response(
+                        {
+                            "room_id": str(room.id),
+                            "room_slug": room.slug,
+                            "role": membership.role,
+                            "is_guest": False,
+                            "user_id": user.id,
+                            "username": user.username,
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+
+        # 2. Check editor token match (guest collaborator with edit access)
         if hasattr(room, "editor_token") and token and token == room.editor_token:
             return Response(
                 {
@@ -85,7 +116,7 @@ class InternalRoomRoleView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        # 2. Check viewer token match (anonymous or logged-in guest with view access)
+        # 3. Check viewer token match (anonymous or logged-in guest with view access)
         if token and token == room.viewer_token:
             return Response(
                 {
@@ -98,7 +129,7 @@ class InternalRoomRoleView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        # 2. If room has no owner (legacy/unowned), default to editor
+        # 4. If room has no owner (legacy/unowned), default to editor
         if not room.owner_id:
             return Response(
                 {
@@ -111,43 +142,7 @@ class InternalRoomRoleView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        # 3. Check registered user
-        if not user_id or not user_id.isdigit():
-            raise PermissionDenied("User ID or valid viewer token is required.")
-
-        uid = int(user_id)
-        user = User.objects.filter(id=uid, is_active=True).first()
-        if not user:
-            raise PermissionDenied("User not found or inactive.")
-
-        if room.owner_id == user.id:
-            return Response(
-                {
-                    "room_id": str(room.id),
-                    "room_slug": room.slug,
-                    "role": RoomMembership.Role.OWNER,
-                    "is_guest": False,
-                    "user_id": user.id,
-                    "username": user.username,
-                },
-                status=status.HTTP_200_OK,
-            )
-
-        membership = room.memberships.filter(user=user).first()
-        if membership:
-            return Response(
-                {
-                    "room_id": str(room.id),
-                    "room_slug": room.slug,
-                    "role": membership.role,
-                    "is_guest": False,
-                    "user_id": user.id,
-                    "username": user.username,
-                },
-                status=status.HTTP_200_OK,
-            )
-
-        raise PermissionDenied("User is not a member of this room.")
+        raise PermissionDenied("Access denied. A valid member account, editor token, or viewer token is required.")
 
 
 class InternalRoomSnapshotView(APIView):

@@ -1,6 +1,9 @@
 import * as Y from "yjs";
 
-const internalApiUrl = process.env.INTERNAL_API_URL || "http://localhost:8000";
+const getInternalApiUrl = () => {
+  const envUrl = process.env.INTERNAL_API_URL || "http://127.0.0.1:8000";
+  return envUrl.replace("://localhost:", "://127.0.0.1:");
+};
 const getInternalToken = () => {
   const token = process.env.INTERNAL_API_TOKEN || "codesync-internal-token-change-in-prod";
   return token === "CHANGE_ME" ? "codesync-internal-token-change-in-prod" : token;
@@ -11,7 +14,7 @@ const maxBytes = Number(process.env.MAX_DOCUMENT_BYTES || 1048576);
 const pendingTimers = new Map<string, NodeJS.Timeout>();
 
 export async function loadRoomSnapshot(documentName: string, doc: Y.Doc): Promise<boolean> {
-  const url = `${internalApiUrl}/internal/rooms/${encodeURIComponent(documentName)}/snapshot/`;
+  const url = `${getInternalApiUrl()}/internal/rooms/${encodeURIComponent(documentName)}/snapshot/`;
 
   try {
     const res = await fetch(url, {
@@ -47,7 +50,7 @@ export async function loadRoomSnapshot(documentName: string, doc: Y.Doc): Promis
 }
 
 export async function saveRoomSnapshot(documentName: string, doc: Y.Doc): Promise<boolean> {
-  const url = `${internalApiUrl}/internal/rooms/${encodeURIComponent(documentName)}/snapshot/`;
+  const url = `${getInternalApiUrl()}/internal/rooms/${encodeURIComponent(documentName)}/snapshot/`;
 
   try {
     const stateUpdate = Y.encodeStateAsUpdate(doc);
@@ -74,7 +77,7 @@ export async function saveRoomSnapshot(documentName: string, doc: Y.Doc): Promis
       return false;
     }
 
-    const result = await res.json();
+    const result = (await res.json()) as any;
     console.log(
       `[Realtime Persistence] Successfully saved snapshot for "${documentName}" (${result.size_bytes} bytes)`
     );

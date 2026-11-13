@@ -97,7 +97,9 @@ postgres_port = os.environ.get("POSTGRES_PORT", "5432")
 
 REDIS_URL = resolve_redis_url(os.environ.get("REDIS_URL", "redis://localhost:6379/0"))
 
-if postgres_db and postgres_user and postgres_host:
+use_sqlite = os.environ.get("DJANGO_USE_SQLITE", "0").lower() in ("1", "true")
+
+if not use_sqlite and postgres_db and postgres_user and postgres_host:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",

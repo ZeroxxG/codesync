@@ -16,13 +16,20 @@ export function decodeJwtPayload(token: string): { user_id?: number; exp?: numbe
   }
 }
 
+const getInternalApiUrl = () => {
+  const envUrl = process.env.INTERNAL_API_URL || "http://127.0.0.1:8000";
+  return envUrl.replace("://localhost:", "://127.0.0.1:");
+};
+
 export async function verifyRoomAccess(
   documentName: string,
   token?: string,
   inviteToken?: string,
-  displayName?: string
+  displayName?: string,
+  viewerToken?: string,
+  editorToken?: string
 ): Promise<AuthContext> {
-  const internalApiUrl = process.env.INTERNAL_API_URL || "http://localhost:8000";
+  const internalApiUrl = getInternalApiUrl();
   let internalToken = process.env.INTERNAL_API_TOKEN || "codesync-internal-token-change-in-prod";
   if (internalToken === "CHANGE_ME") {
     internalToken = "codesync-internal-token-change-in-prod";
@@ -42,10 +49,10 @@ export async function verifyRoomAccess(
 
   const queryParams = new URLSearchParams();
   if (userId) queryParams.set("user_id", String(userId));
-  if (inviteToken) {
+  if (editorToken) queryParams.set("editor_token", editorToken);
+  if (viewerToken) queryParams.set("viewer_token", viewerToken);
+  if (inviteToken && !editorToken && !viewerToken) {
     queryParams.set("token", inviteToken);
-    queryParams.set("viewer_token", inviteToken);
-    queryParams.set("editor_token", inviteToken);
   }
 
   const url = `${internalApiUrl}/internal/rooms/${encodeURIComponent(documentName)}/role/?${queryParams.toString()}`;
@@ -65,7 +72,7 @@ export async function verifyRoomAccess(
       throw new Error(`Unauthorized: access to room "${documentName}" was rejected`);
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as any;
     return {
       userId: data.user_id,
       username: data.username || displayName || `User-${data.user_id || "Guest"}`,

@@ -48,12 +48,14 @@ export function createYjsSession(options: CreateYjsSessionOptions): YjsSession {
     url: realtimeUrl,
     name: roomSlug,
     document: doc,
+    token: token || undefined,
     parameters,
     onStatus: ({ status }) => {
       onStatusChange?.(status);
     },
     onAuthenticated: () => {
       console.log(`[Hocuspocus] Successfully authenticated in room "${roomSlug}"`);
+      onStatusChange?.("connected");
     },
     onAuthenticationFailed: ({ reason }) => {
       console.warn(`[Hocuspocus] Authentication rejected in room "${roomSlug}":`, reason);

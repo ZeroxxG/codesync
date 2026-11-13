@@ -108,16 +108,10 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   useEffect(() => {
     if (!room?.slug) return;
 
-    const effectiveViewer =
-      viewerToken ||
-      room.viewer_token ||
-      queryTokens.viewerToken ||
-      (room.current_user_role === "viewer" ? queryTokens.generalToken : undefined);
-
-    const effectiveEditor =
-      room.editor_token ||
-      queryTokens.editorToken ||
-      (room.current_user_role === "editor" ? queryTokens.generalToken : undefined);
+    // Authenticated members use JWT; guest tokens are only passed when accessing via shared link or as guest
+    const isOwnerOrEditor = room.current_user_role === "owner" || (room.current_user_role === "editor" && Boolean(user));
+    const effectiveViewer = queryTokens.viewerToken || (!isOwnerOrEditor ? viewerToken || room.viewer_token : undefined);
+    const effectiveEditor = queryTokens.editorToken || (!isOwnerOrEditor ? room.editor_token : undefined);
 
     const s = createYjsSession({
       roomSlug: room.slug,

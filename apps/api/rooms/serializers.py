@@ -103,7 +103,9 @@ class RoomSerializer(serializers.ModelSerializer):
     def get_editor_token(self, obj: Room) -> str | None:
         role = self.get_current_user_role(obj)
         if role in ("owner", "editor"):
-            return getattr(obj, "editor_token", None)
+            if not getattr(obj, "editor_token", None):
+                obj.refresh_editor_token()
+            return obj.editor_token
         return None
 
     def validate_language(self, value: str) -> str:
