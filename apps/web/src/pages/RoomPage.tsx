@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useMemo } from "react";
-import { Play, ArrowLeft, Share2, Eye, ShieldAlert, ShieldCheck, LogIn } from "lucide-react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { Play, ArrowLeft, Share2, Eye, ShieldAlert, ShieldCheck, LogIn, Loader2 } from "lucide-react";
 import { createYjsSession, YjsSession } from "../lib/yjsClient";
 import { getUserColor } from "../lib/colors";
 import { useAuth } from "../contexts/AuthContext";
@@ -8,6 +8,7 @@ import PresenceBar from "../components/PresenceBar";
 import LanguageSelector from "../components/LanguageSelector";
 import ShareModal from "../components/ShareModal";
 import AuthModal from "../components/AuthModal";
+import OutputPanel, { RunStatus } from "../components/OutputPanel";
 
 interface RoomPageProps {
   roomSlug: string;
@@ -40,6 +41,13 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Sandboxed Code Execution states
+  const [outputPanelOpen, setOutputPanelOpen] = useState<boolean>(false);
+  const [runStatus, setRunStatus] = useState<RunStatus>("idle");
+  const [runOutput, setRunOutput] = useState<string>("");
+  const [runDurationMs, setRunDurationMs] = useState<number | null>(null);
+  const [runExitCode, setRunExitCode] = useState<number | null>(null);
 
   // Extract all query tokens
   const queryTokens = useMemo(() => {
@@ -150,6 +158,122 @@ export const RoomPage: React.FC<RoomPageProps> = ({
 
   const isReadOnly = room?.current_user_role === "viewer";
   const isOwner = room?.current_user_role === "owner";
+  const isExecuting = runStatus === "running" || runStatus === "queued";
+
+  // Listen for real-time execution stream over Hocuspocus stateless messages
+  useEffect(() => {
+    if (!session?.provider) return;
+
+    const handleStateless = ({ payload }: { payload: string }) => {
+      try {
+        const data = JSON.parse(payload);
+        if (data.room_slug && data.room_slug !== (room?.slug || roomSlug)) return;
+
+        if (data.type === "run_start") {
+          setOutputPanelOpen(true);
+          setRunStatus("running");
+          setRunOutput("");
+          setRunDurationMs(null);
+          setRunExitCode(null);
+        } else if (data.type === "run_output") {
+          setOutputPanelOpen(true);
+          setRunStatus("running");
+          setRunOutput((prev) => prev + (data.chunk || ""));
+        } else if (data.type === "run_complete") {
+          setOutputPanelOpen(true);
+          setRunStatus(data.status || "completed");
+          setRunExitCode(data.exit_code ?? 0);
+          setRunDurationMs(data.duration_ms ?? null);
+          if (data.output && !runOutput) {
+            setRunOutput(data.output);
+          }
+        }
+      } catch {
+        // Ignore non-json stateless payloads
+      }
+    };
+
+    session.provider.on("stateless", handleStateless);
+
+    return () => {
+      session.provider.off("stateless", handleStateless);
+    };
+  }, [session?.provider, room?.slug, roomSlug, runOutput]);
+
+  const handleRunCode = useCallback(async () => {
+    if (isReadOnly || isExecuting || !session?.doc) return;
+
+    const codeText = session.doc.getText("monaco").toString();
+    if (!codeText.trim()) {
+      setOutputPanelOpen(true);
+      setRunOutput("Cannot execute empty code.\n");
+      setRunStatus("failed");
+      return;
+    }
+
+    setOutputPanelOpen(true);
+    setRunStatus("queued");
+    setRunOutput("");
+    setRunDurationMs(null);
+    setRunExitCode(null);
+
+    const tokenQuery = queryTokens.editorToken
+      ? `?editor_token=${encodeURIComponent(queryTokens.editorToken)}`
+      : queryTokens.generalToken
+      ? `?token=${encodeURIComponent(queryTokens.generalToken)}`
+      : "";
+
+    try {
+      const res = await authFetch(
+        `/api/rooms/${encodeURIComponent(room?.slug || roomSlug)}/runs/${tokenQuery}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            code: codeText,
+            language: currentLanguage,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const msg = errData.error || `Execution failed with HTTP ${res.status}`;
+        setRunStatus("failed");
+        setRunOutput(`Error: ${msg}\n`);
+        return;
+      }
+
+      const runData = await res.json();
+      setRunStatus(runData.status || "queued");
+    } catch (err: any) {
+      setRunStatus("failed");
+      setRunOutput(`Failed to trigger execution: ${err.message}\n`);
+    }
+  }, [
+    isReadOnly,
+    isExecuting,
+    session?.doc,
+    queryTokens,
+    room?.slug,
+    roomSlug,
+    currentLanguage,
+    authFetch,
+  ]);
+
+  // Global Ctrl+Enter / Cmd+Enter shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        handleRunCode();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleRunCode]);
 
   if (loading) {
     return (
@@ -262,23 +386,57 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           </button>
 
           <button
-            disabled
-            title="Code execution enabled in Phase 3"
-            className="flex items-center gap-1.5 text-xs bg-emerald-600/50 cursor-not-allowed opacity-60 text-white px-3 py-1.5 rounded-md font-semibold"
+            onClick={handleRunCode}
+            disabled={isReadOnly || isExecuting}
+            title={
+              isReadOnly
+                ? "Viewers are not permitted to run code"
+                : isExecuting
+                ? "Code execution in progress..."
+                : "Run Code (Ctrl+Enter)"
+            }
+            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md font-semibold transition-all ${
+              isReadOnly
+                ? "bg-slate-800/60 text-slate-500 cursor-not-allowed border border-slate-700/50"
+                : isExecuting
+                ? "bg-amber-600/70 text-amber-100 cursor-wait animate-pulse"
+                : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-900/30"
+            }`}
           >
-            <Play className="w-3.5 h-3.5 fill-current" />
-            <span>Run</span>
+            {isExecuting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Play className="w-3.5 h-3.5 fill-current" />
+            )}
+            <span>{isExecuting ? "Running..." : "Run"}</span>
+            {!isReadOnly && !isExecuting && (
+              <span className="hidden sm:inline-block ml-0.5 text-[10px] font-mono text-emerald-200/80 bg-emerald-700/50 px-1 py-0.5 rounded">
+                Ctrl+↵
+              </span>
+            )}
           </button>
         </div>
       </header>
 
-      {/* Editor Body */}
-      <main className="flex-1 p-3 overflow-hidden">
-        <Editor
-          doc={session.doc}
-          provider={session.provider}
-          language={currentLanguage}
-          readOnly={isReadOnly}
+      {/* Editor & Output Body */}
+      <main className="flex-1 p-3 pb-0 overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <Editor
+            doc={session.doc}
+            provider={session.provider}
+            language={currentLanguage}
+            readOnly={isReadOnly}
+          />
+        </div>
+
+        <OutputPanel
+          isOpen={outputPanelOpen}
+          onToggle={() => setOutputPanelOpen(!outputPanelOpen)}
+          status={runStatus}
+          output={runOutput}
+          durationMs={runDurationMs}
+          exitCode={runExitCode}
+          onClear={() => setRunOutput("")}
         />
       </main>
 
