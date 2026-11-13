@@ -1,3 +1,6 @@
+import hashlib
+import uuid
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.http import Http404
@@ -7,12 +10,14 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import Room, RoomMembership
+from .models import Room, RoomMembership, Run
 from .serializers import (
     AddMemberSerializer,
     CreateRoomSerializer,
+    CreateRunSerializer,
     RoomMemberSerializer,
     RoomSerializer,
+    RunSerializer,
 )
 
 User = get_user_model()
@@ -232,3 +237,152 @@ class RoomViewerLinkView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class RoomRunView(APIView):
+    """
+    POST /api/rooms/<slug>/runs/
+    Dispatches a code execution job to the runner worker via Celery.
+    Rejects viewers (403), enforces rate limits (429), and checks per-room active run mutex lock (409).
+
+    GET /api/rooms/<slug>/runs/
+    Returns recent runs for the room.
+    """
+
+    def get(self, request: Request, slug: str) -> Response:
+        room = get_object_or_404(Room, slug=slug)
+        token = (
+            request.query_params.get("editor_token")
+            or request.query_params.get("viewer_token")
+            or request.query_params.get("invite_token")
+            or request.query_params.get("token")
+        )
+        role = get_user_room_role(room, request.user, token)
+        if role == "none":
+            raise PermissionDenied("You do not have access to view runs in this room.")
+
+        runs = room.runs.all()[:20]
+        serializer = RunSerializer(runs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request: Request, slug: str) -> Response:
+        room = get_object_or_404(Room, slug=slug)
+        token = (
+            request.query_params.get("editor_token")
+            or request.query_params.get("viewer_token")
+            or request.query_params.get("invite_token")
+            or request.query_params.get("token")
+            or request.headers.get("X-Editor-Token")
+            or request.headers.get("X-Viewer-Token")
+        )
+        role = get_user_room_role(room, request.user, token)
+
+        if role == RoomMembership.Role.VIEWER:
+            return Response(
+                {"error": "Viewers are not permitted to execute code."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if role not in (RoomMembership.Role.OWNER, RoomMembership.Role.EDITOR):
+            raise PermissionDenied("You do not have permission to execute code in this room.")
+
+        serializer = CreateRunSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        code = serializer.validated_data["code"]
+        language = serializer.validated_data.get("language") or room.language
+
+        # Connect to Redis for rate-limiting and mutex lock
+        import redis
+        redis_url = getattr(settings, "REDIS_URL", "redis://localhost:6379/0")
+        r = None
+        try:
+            r = redis.from_url(redis_url)
+
+            # 1. Rate limiting: 6 runs/min per user, 10 runs/min per room
+            user_ident = str(request.user.id) if (request.user and request.user.is_authenticated) else request.META.get("REMOTE_ADDR", "anon")
+            user_key = f"ratelimit:user:{user_ident}"
+            room_key = f"ratelimit:room:{room.slug}"
+
+            user_runs = r.incr(user_key)
+            if user_runs == 1:
+                r.expire(user_key, 60)
+            if user_runs > 6:
+                return Response(
+                    {"error": "User run rate limit exceeded (maximum 6 runs per minute)."},
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+
+            room_runs = r.incr(room_key)
+            if room_runs == 1:
+                r.expire(room_key, 60)
+            if room_runs > 10:
+                return Response(
+                    {"error": "Room run rate limit exceeded (maximum 10 runs per minute)."},
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+
+            # 2. Concurrency lock (15s TTL mutex)
+            lock_key = f"room:{room.slug}:running_lock"
+            acquired = r.set(lock_key, "1", nx=True, ex=15)
+            if not acquired:
+                return Response(
+                    {"error": "Another code execution is currently running in this room. Please wait for it to complete."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+        except redis.RedisError:
+            r = None
+
+        code_hash = hashlib.sha256(code.encode("utf-8")).hexdigest()
+        run = Run.objects.create(
+            room=room,
+            user=request.user if (request.user and request.user.is_authenticated) else None,
+            language=language,
+            code_hash=code_hash,
+            status=Run.Status.QUEUED,
+        )
+
+        # Dispatch Celery task
+        try:
+            from codesync.celery import app as celery_app
+            celery_app.send_task(
+                "runner.tasks.execute_code",
+                args=[str(run.id), room.slug, language, code],
+            )
+        except Exception as e:
+            if r:
+                try:
+                    r.delete(f"room:{room.slug}:running_lock")
+                except Exception:
+                    pass
+            run.status = Run.Status.FAILED
+            run.output = f"Failed to dispatch execution task: {str(e)}"
+            run.save(update_fields=["status", "output"])
+            return Response(
+                {"error": f"Failed to queue execution: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(RunSerializer(run).data, status=status.HTTP_201_CREATED)
+
+
+class RoomRunDetailView(APIView):
+    """
+    GET /api/rooms/<slug>/runs/<uuid:run_id>/
+    Retrieve the status and output of a specific execution.
+    """
+
+    def get(self, request: Request, slug: str, run_id: uuid.UUID) -> Response:
+        room = get_object_or_404(Room, slug=slug)
+        token = (
+            request.query_params.get("editor_token")
+            or request.query_params.get("viewer_token")
+            or request.query_params.get("invite_token")
+            or request.query_params.get("token")
+        )
+        role = get_user_room_role(room, request.user, token)
+        if role == "none":
+            raise PermissionDenied("You do not have access to view runs in this room.")
+
+        run = get_object_or_404(Run, id=run_id, room=room)
+        return Response(RunSerializer(run).data, status=status.HTTP_200_OK)
+
