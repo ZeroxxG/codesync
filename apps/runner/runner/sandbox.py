@@ -171,6 +171,9 @@ class DockerSandboxExecutor:
                 # Ensure all logs are captured even if container exited before stream attached
                 try:
                     full_logs = container.logs(stdout=True, stderr=True).decode("utf-8", errors="replace")
+                    if len(full_logs) > cfg.MAX_OUTPUT_BYTES:
+                        truncated = True
+
                     streamed_text = "".join(collected_chunks)
                     if len(full_logs) > len(streamed_text):
                         if not streamed_text:
