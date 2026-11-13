@@ -1,6 +1,7 @@
 import { Server } from "@hocuspocus/server";
 import dotenv from "dotenv";
 import { AuthContext, verifyRoomAccess } from "./auth.js";
+import { debounceRoomSave, flushRoomSave, loadRoomSnapshot } from "./persistence.js";
 
 dotenv.config();
 
@@ -51,6 +52,24 @@ export const server = Server.configure({
     }
   },
 
+  async onLoadDocument(data) {
+    const { documentName, document } = data;
+    console.log(`[Realtime] Loading document state for room: "${documentName}"`);
+    await loadRoomSnapshot(documentName, document);
+    return document;
+  },
+
+  async onChange(data) {
+    const { documentName, document } = data;
+    debounceRoomSave(documentName, document);
+  },
+
+  async onStoreDocument(data) {
+    const { documentName, document } = data;
+    console.log(`[Realtime] Flushing document snapshot to storage for room: "${documentName}"`);
+    await flushRoomSave(documentName, document);
+  },
+
   async onConnect(data) {
     const { documentName } = data;
     console.log(`[Realtime] Client connected to room: "${documentName}"`);
@@ -59,11 +78,6 @@ export const server = Server.configure({
   async onDisconnect(data) {
     const { documentName, clientsCount } = data;
     console.log(`[Realtime] Client disconnected from "${documentName}". Remaining clients: ${clientsCount}`);
-  },
-
-  async onChange(data) {
-    const { documentName } = data;
-    // Debounced snapshot saving to Django wired in Step 9
   },
 });
 
