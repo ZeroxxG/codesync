@@ -44,11 +44,15 @@ export function createYjsSession(options: CreateYjsSessionOptions): YjsSession {
   if (editorToken) parameters.editor_token = editorToken;
   if (inviteToken) parameters.invite_token = inviteToken;
 
+  // HocuspocusProvider requires a non-empty token string to send the AuthenticationMessage handshake.
+  // If token is empty/undefined, Hocuspocus client skips auth message and hangs forever on authenticated servers.
+  const authPayload = token || viewerToken || editorToken || inviteToken || "anonymous";
+
   const provider = new HocuspocusProvider({
     url: realtimeUrl,
     name: roomSlug,
     document: doc,
-    token: token || undefined,
+    token: authPayload,
     parameters,
     onStatus: ({ status }) => {
       onStatusChange?.(status);

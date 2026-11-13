@@ -16,13 +16,17 @@ export const server = Server.configure({
 
   async onAuthenticate(data) {
     const { token, requestParameters, documentName } = data;
-    const jwtToken = token || requestParameters.get("token") || undefined;
+    const isJwt = (t?: string) => Boolean(t && t.split(".").length === 3);
+
+    const rawToken = token || requestParameters.get("token") || undefined;
+    const jwtToken = isJwt(rawToken) ? rawToken : undefined;
+
     const viewerToken = requestParameters.get("viewer_token") || undefined;
     const editorToken = requestParameters.get("editor_token") || undefined;
     const inviteToken =
       requestParameters.get("invite_token") ||
       requestParameters.get("invite") ||
-      undefined;
+      (!isJwt(rawToken) && rawToken && rawToken !== "anonymous" ? rawToken : undefined);
     const displayName = requestParameters.get("user") || undefined;
 
     const authContext = await verifyRoomAccess(
