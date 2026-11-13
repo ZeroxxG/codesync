@@ -59,11 +59,37 @@ WSGI_APPLICATION = "codesync.wsgi.application"
 ASGI_APPLICATION = "codesync.asgi.application"
 
 # Database configuration
+import socket
+
+def resolve_host(host: str | None, fallback: str = "localhost") -> str:
+    """Resolve host, falling back to localhost if running outside container network."""
+    if not host:
+        return fallback
+    try:
+        socket.gethostbyname(host)
+        return host
+    except (socket.gaierror, OSError):
+        return fallback
+
+def resolve_redis_url(url: str | None, fallback_host: str = "localhost") -> str:
+    """If REDIS_URL points to an unresolvable hostname like 'redis', fallback to localhost."""
+    if not url:
+        return ""
+    if "://redis:" in url or "://redis/" in url:
+        try:
+            socket.gethostbyname("redis")
+        except (socket.gaierror, OSError):
+            return url.replace("://redis:", f"://{fallback_host}:").replace("://redis/", f"://{fallback_host}/")
+    return url
+
 postgres_db = os.environ.get("POSTGRES_DB")
 postgres_user = os.environ.get("POSTGRES_USER")
 postgres_password = os.environ.get("POSTGRES_PASSWORD", "")
-postgres_host = os.environ.get("POSTGRES_HOST")
+raw_postgres_host = os.environ.get("POSTGRES_HOST")
+postgres_host = resolve_host(raw_postgres_host, "localhost") if raw_postgres_host else None
 postgres_port = os.environ.get("POSTGRES_PORT", "5432")
+
+REDIS_URL = resolve_redis_url(os.environ.get("REDIS_URL", "redis://localhost:6379/0"))
 
 if postgres_db and postgres_user and postgres_host:
     DATABASES = {

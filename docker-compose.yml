@@ -37,6 +37,10 @@ services:
     build: ./apps/api
     restart: unless-stopped
     env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_URL: redis://redis:6379/0
+      INTERNAL_API_URL: http://api:8000
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,6 +57,9 @@ services:
     build: ./apps/realtime
     restart: unless-stopped
     env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      INTERNAL_API_URL: http://api:8000
     depends_on:
       redis:
         condition: service_healthy
@@ -67,6 +74,8 @@ services:
     build: ./apps/runner
     restart: unless-stopped
     env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       redis:
         condition: service_healthy
