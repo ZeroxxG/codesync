@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import path from "path";
 import { AuthContext, verifyRoomAccess } from "./auth.js";
 import { debounceRoomSave, flushRoomSave, loadRoomSnapshot } from "./persistence.js";
+import { initRedisSubscriber } from "./redisSubscriber.js";
 
 dotenv.config({ path: path.resolve(process.cwd(), "../../.env") });
 dotenv.config({ path: path.resolve(process.cwd(), "../.env") });
@@ -85,5 +86,6 @@ export const server = Server.configure({
 if (process.env.NODE_ENV !== "test") {
   server.listen().then(() => {
     console.log(`[Realtime] Hocuspocus collaboration server listening on port ${port}`);
+    initRedisSubscriber(server);
   });
 }
