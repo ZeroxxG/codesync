@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import HomePage from "./pages/HomePage";
 import RoomPage from "./pages/RoomPage";
+import { AuthProvider } from "./contexts/AuthContext";
 
-export function App() {
+function MainContent() {
   const [currentRoom, setCurrentRoom] = useState<string | null>(() => {
-    // Check URL search params ?room=xyz or hash #/room/xyz
     const params = new URLSearchParams(window.location.search);
     if (params.get("room")) {
       return params.get("room");
@@ -56,6 +56,14 @@ export function App() {
       userName={userName}
       onLeaveRoom={handleLeaveRoom}
     />
+  );
+}
+
+export function App() {
+  return (
+    <AuthProvider>
+      <MainContent />
+    </AuthProvider>
   );
 }
 

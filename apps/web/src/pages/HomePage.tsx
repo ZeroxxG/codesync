@@ -1,33 +1,39 @@
 import React, { useState } from "react";
-import { Code, Plus, ArrowRight, Sparkles } from "lucide-react";
+import { Code, Plus, ArrowRight, Sparkles, LogIn, LogOut, User as UserIcon } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import AuthModal from "../components/AuthModal";
 
 interface HomePageProps {
   onJoinRoom: (slug: string, userName: string) => void;
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ onJoinRoom }) => {
+  const { user, isAuthenticated, logout, authFetch } = useAuth();
   const [userName, setUserName] = useState<string>(() => {
     return localStorage.getItem("codesync_user") || `Dev-${Math.floor(100 + Math.random() * 900)}`;
   });
   const [roomSlug, setRoomSlug] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
+
+  const activeDisplayName = user ? user.username : userName;
 
   const handleCreateRoom = async () => {
     setLoading(true);
     setError(null);
     try {
-      localStorage.setItem("codesync_user", userName);
-      const res = await fetch("/api/rooms/", {
+      localStorage.setItem("codesync_user", activeDisplayName);
+      const res = await authFetch("/api/rooms/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: `${userName}'s Room`, language: "python" }),
+        body: JSON.stringify({ name: `${activeDisplayName}'s Room`, language: "python" }),
       });
       if (!res.ok) {
         throw new Error(`Failed to create room: ${res.statusText}`);
       }
       const data = await res.json();
-      onJoinRoom(data.slug, userName);
+      onJoinRoom(data.slug, activeDisplayName);
     } catch (err: any) {
       setError(err.message || "Failed to create room");
     } finally {
@@ -38,12 +44,37 @@ export const HomePage: React.FC<HomePageProps> = ({ onJoinRoom }) => {
   const handleJoinExisting = (e: React.FormEvent) => {
     e.preventDefault();
     if (!roomSlug.trim()) return;
-    localStorage.setItem("codesync_user", userName);
-    onJoinRoom(roomSlug.trim(), userName);
+    localStorage.setItem("codesync_user", activeDisplayName);
+    onJoinRoom(roomSlug.trim(), activeDisplayName);
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center px-4 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+    <div className="min-h-screen flex flex-col justify-center items-center px-4 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 relative">
+      {/* Top Auth Bar */}
+      <div className="absolute top-4 right-4 flex items-center gap-3">
+        {isAuthenticated && user ? (
+          <div className="flex items-center gap-2 bg-slate-900/80 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300">
+            <UserIcon className="w-3.5 h-3.5 text-blue-400" />
+            <span className="font-medium text-white">{user.username}</span>
+            <button
+              onClick={() => logout()}
+              className="ml-2 text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1"
+              title="Sign Out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setAuthModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <LogIn className="w-3.5 h-3.5 text-blue-400" />
+            <span>Sign In / Register</span>
+          </button>
+        )}
+      </div>
+
       <div className="max-w-md w-full space-y-8 bg-slate-900/60 p-8 rounded-2xl border border-slate-800 shadow-2xl backdrop-blur-xl">
         <div className="text-center space-y-2">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30 mb-2">
@@ -70,10 +101,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onJoinRoom }) => {
             </label>
             <input
               type="text"
-              value={userName}
+              value={activeDisplayName}
+              disabled={isAuthenticated}
               onChange={(e) => setUserName(e.target.value)}
               placeholder="Enter your name"
-              className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
             />
           </div>
 
@@ -110,6 +142,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onJoinRoom }) => {
           </form>
         </div>
       </div>
+
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </div>
   );
 };
