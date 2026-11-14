@@ -1,0 +1,95 @@
+version: "3.9"
+
+# Production overrides for Azure deployment
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod up -d
+
+services:
+  # Local postgres container is disabled; using Azure Database for PostgreSQL Flexible Server
+  postgres:
+    profiles:
+      - disabled
+
+  # Frontend container is disabled; hosted externally on Vercel
+  web:
+    profiles:
+      - disabled
+
+  api:
+    profiles:
+      - prod
+    restart: always
+    volumes: []
+    environment:
+      DJANGO_DEBUG: "False"
+      DJANGO_ALLOWED_HOSTS: "*"
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-codesync}
+      POSTGRES_USER: ${POSTGRES_USER:-codesync}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_URL: redis://redis:6379/0
+      INTERNAL_API_URL: http://api:8000
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  realtime-1:
+    profiles:
+      - prod
+    restart: always
+    volumes: []
+    environment:
+      PORT: 1234
+      REDIS_URL: redis://redis:6379/0
+      INTERNAL_API_URL: http://api:8000
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  realtime-2:
+    profiles:
+      - prod
+    restart: always
+    volumes: []
+    environment:
+      PORT: 1234
+      REDIS_URL: redis://redis:6379/0
+      INTERNAL_API_URL: http://api:8000
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  runner:
+    profiles:
+      - prod
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      INTERNAL_API_URL: http://api:8000
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    profiles:
+      - prod
+    restart: always
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  nginx:
+    profiles:
+      - prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "1234:1234"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+      - realtime-1
+      - realtime-2

@@ -94,3 +94,4 @@ This document records the empirical performance benchmarks and latency measureme
    - In production, Gunicorn multi-worker setup (`apps/api/gunicorn.conf.py`) behind Nginx upstream load balancer scales horizontally to handle hundreds of concurrent requests.
 4. **N+1 Query Prevention**:
    - Composite database indexes (`idx_membership_room_role`, `idx_membership_room_user`, `idx_run_room_created`, `idx_room_created`) and ORM `select_related`/`prefetch_related` optimizations ensure constant $O(1)$ query count regardless of the number of rooms listed.
+
