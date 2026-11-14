@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { Play, ArrowLeft, Share2, Eye, ShieldAlert, ShieldCheck, LogIn, Loader2 } from "lucide-react";
+import { Play, ArrowLeft, Share2, Eye, ShieldAlert, ShieldCheck, LogIn, Loader2, History } from "lucide-react";
 import { createYjsSession, YjsSession } from "../lib/yjsClient";
 import { getUserColor } from "../lib/colors";
 import { useAuth } from "../contexts/AuthContext";
@@ -9,6 +9,7 @@ import LanguageSelector from "../components/LanguageSelector";
 import ShareModal from "../components/ShareModal";
 import AuthModal from "../components/AuthModal";
 import OutputPanel, { RunStatus } from "../components/OutputPanel";
+import RunHistoryModal from "../components/RunHistoryModal";
 
 interface RoomPageProps {
   roomSlug: string;
@@ -49,6 +50,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [runDurationMs, setRunDurationMs] = useState<number | null>(null);
   const [runExitCode, setRunExitCode] = useState<number | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [runHistoryOpen, setRunHistoryOpen] = useState<boolean>(false);
 
 
   // Extract all query tokens
@@ -440,6 +442,15 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           </button>
 
           <button
+            onClick={() => setRunHistoryOpen(true)}
+            title="Execution History"
+            className="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-md font-medium text-slate-300 transition-colors"
+          >
+            <History className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">History</span>
+          </button>
+
+          <button
             onClick={handleRunCode}
             disabled={isReadOnly || isExecuting}
             title={
@@ -502,6 +513,14 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         editorToken={room?.editor_token || queryTokens.editorToken}
         isOwner={isOwner}
         onRefreshViewerToken={isOwner ? handleRefreshViewerToken : undefined}
+      />
+
+      <RunHistoryModal
+        isOpen={runHistoryOpen}
+        onClose={() => setRunHistoryOpen(false)}
+        roomSlug={room?.slug || roomSlug}
+        queryTokens={queryTokens}
+        authFetch={authFetch}
       />
     </div>
   );
