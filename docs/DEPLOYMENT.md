@@ -158,13 +158,36 @@ docker compose exec api python manage.py createsuperuser
 
 ---
 
-## 5. Automated CI/CD Setup
+## 5. Ongoing Updates & Future CI/CD
 
-In your GitHub repository, navigate to **Settings ➔ Secrets and variables ➔ Actions** and add:
-- `AZURE_VM_IP`: The public IP address of your Azure VM.
-- `AZURE_VM_SSH_KEY`: The private SSH key (e.g. `~/.ssh/id_rsa` or Azure-generated `.pem` file).
+### 5.1 Manual Updates (Current)
+Whenever you push updates to GitHub, pull the latest code on your Azure VM:
+```bash
+cd /opt/codesync
+git pull origin main
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod up -d --build
+```
+Vercel will automatically rebuild and deploy the frontend whenever you push to `main`.
 
-On every push to `main`:
-1. GitHub Actions runs Python unit tests (Django + Celery) and Node tests (Hocuspocus + Vite build).
-2. Upon passing, it connects via SSH to `/opt/codesync` on the Azure VM, pulls changes, and rebuilds the production containers automatically.
-3. Vercel automatically detects the push and deploys the updated frontend.
+### 5.2 Future Automated CI/CD (After App Goes Live)
+Once your live deployment is verified and running stably, you can automate VM deployments by adding this job to `.github/workflows/ci.yml`:
+```yaml
+  deploy-backend:
+    name: Deploy Backend to Azure VM
+    runs-on: ubuntu-latest
+    needs: [python-test, node-test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: SSH Deploy to Azure VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AZURE_VM_IP }}
+          username: azureuser
+          key: ${{ secrets.AZURE_VM_SSH_KEY }}
+          script: |
+            cd /opt/codesync
+            git pull origin main
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod up -d --build
+            docker image prune -f
+```
+And adding `AZURE_VM_IP` and `AZURE_VM_SSH_KEY` to your GitHub Repository Secrets.
