@@ -45,7 +45,12 @@ class Room(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        indexes = [
+            models.Index(fields=["-created_at"], name="idx_room_created"),
+        ]
         ordering = ["-created_at"]
+
+
 
     def __str__(self) -> str:
         return f"{self.name} ({self.slug})"
@@ -90,7 +95,12 @@ class RoomMembership(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["user", "room"], name="unique_user_room_membership"),
         ]
+        indexes = [
+            models.Index(fields=["room", "role"], name="idx_membership_room_role"),
+            models.Index(fields=["room", "user"], name="idx_membership_room_user"),
+        ]
         ordering = ["created_at"]
+
 
     def __str__(self) -> str:
         return f"{self.user} - {self.room.name} ({self.role})"
@@ -147,8 +157,13 @@ class Run(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        indexes = [
+            models.Index(fields=["room", "-created_at"], name="idx_run_room_created"),
+            models.Index(fields=["status"], name="idx_run_status"),
+        ]
         ordering = ["-created_at"]
 
     def __str__(self) -> str:
         return f"Run {self.id} ({self.room.slug} - {self.language} - {self.status})"
+
 
