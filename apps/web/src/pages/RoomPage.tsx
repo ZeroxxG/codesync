@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { Play, ArrowLeft, Share2, Eye, ShieldAlert, ShieldCheck, LogIn, Loader2, History } from "lucide-react";
+import { Play, ArrowLeft, Share2, Eye, ShieldAlert, ShieldCheck, LogIn, Loader2, History, Sun, Moon } from "lucide-react";
 import { createYjsSession, YjsSession } from "../lib/yjsClient";
 import { getUserColor } from "../lib/colors";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 import Editor from "../components/Editor";
 import PresenceBar from "../components/PresenceBar";
 import LanguageSelector from "../components/LanguageSelector";
@@ -34,6 +35,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   onLeaveRoom,
 }) => {
   const { user, accessToken, authFetch } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [room, setRoom] = useState<RoomData | null>(null);
   const [currentLanguage, setCurrentLanguage] = useState<string>("python");
   const [connectionStatus, setConnectionStatus] = useState<string>("connecting");
@@ -448,6 +450,14 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           >
             <History className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">History</span>
+          </button>
+
+          <button
+            onClick={toggleTheme}
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          >
+            {theme === "dark" ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-blue-400" />}
           </button>
 
           <button

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Code, Plus, ArrowRight, Sparkles, LogIn, LogOut, User as UserIcon } from "lucide-react";
+import { Code, Plus, ArrowRight, Sparkles, LogIn, LogOut, User as UserIcon, Sun, Moon } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 import AuthModal from "../components/AuthModal";
 
 interface HomePageProps {
@@ -9,6 +10,7 @@ interface HomePageProps {
 
 export const HomePage: React.FC<HomePageProps> = ({ onJoinRoom }) => {
   const { user, isAuthenticated, logout, authFetch } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [userName, setUserName] = useState<string>(() => {
     return localStorage.getItem("codesync_user") || `Dev-${Math.floor(100 + Math.random() * 900)}`;
   });
@@ -50,8 +52,16 @@ export const HomePage: React.FC<HomePageProps> = ({ onJoinRoom }) => {
 
   return (
     <div className="min-h-screen flex flex-col justify-center items-center px-4 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 relative">
-      {/* Top Auth Bar */}
+      {/* Top Auth & Theme Bar */}
       <div className="absolute top-4 right-4 flex items-center gap-3">
+        <button
+          onClick={toggleTheme}
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          className="p-2 rounded-lg bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-white transition-colors"
+        >
+          {theme === "dark" ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-blue-400" />}
+        </button>
+
         {isAuthenticated && user ? (
           <div className="flex items-center gap-2 bg-slate-900/80 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300">
             <UserIcon className="w-3.5 h-3.5 text-blue-400" />
