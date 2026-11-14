@@ -1,0 +1,118 @@
+name: CodeSync CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  python-test:
+    name: Python Test Suite (API & Runner)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: codesync_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install API dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r apps/api/requirements.txt
+
+      - name: Run Django Migrations & Pytest (API)
+        env:
+          POSTGRES_DB: codesync_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_HOST: 127.0.0.1
+          POSTGRES_PORT: 5432
+          REDIS_URL: redis://127.0.0.1:6379/0
+          SECRET_KEY: ci-test-secret-key-codesync
+        run: |
+          python apps/api/manage.py migrate
+          pytest apps/api/rooms/tests -v
+
+      - name: Install Runner dependencies
+        run: |
+          pip install -r apps/runner/requirements.txt
+
+      - name: Run Celery Runner Tests
+        env:
+          REDIS_URL: redis://127.0.0.1:6379/0
+          PYTHONPATH: apps/runner
+        run: |
+          pytest apps/runner/tests -v
+
+  node-test:
+    name: Node Test & Build Suite (Realtime & Web)
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: Install root dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Realtime Typecheck & Tests
+        env:
+          REDIS_URL: redis://127.0.0.1:6379/0
+        run: |
+          pnpm --prefix apps/realtime typecheck
+          pnpm --prefix apps/realtime test
+
+      - name: Web Frontend Build
+        run: |
+          pnpm --prefix apps/web build
