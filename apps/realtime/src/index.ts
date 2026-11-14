@@ -4,6 +4,7 @@ import path from "path";
 import { AuthContext, verifyRoomAccess } from "./auth.js";
 import { log } from "./logger.js";
 import { debounceRoomSave, flushRoomSave, loadRoomSnapshot } from "./persistence.js";
+import { createRedisExtension } from "./redisExtension.js";
 import { initRedisSubscriber } from "./redisSubscriber.js";
 
 
@@ -14,8 +15,13 @@ dotenv.config();
 
 const port = Number(process.env.REALTIME_PORT || 1234);
 
+const redisExt = createRedisExtension();
+const extensions = redisExt ? [redisExt] : [];
+
 export const server = Server.configure({
   port,
+  extensions,
+
 
   async onAuthenticate(data) {
     const { token, requestParameters, documentName } = data;
