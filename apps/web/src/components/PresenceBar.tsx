@@ -107,7 +107,10 @@ export const PresenceBar: React.FC<PresenceBarProps> = ({
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+          <span
+            title="Realtime collaboration server is unreachable. Check that apps/realtime (port 1234) and apps/api (port 8000) are running."
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 cursor-help"
+          >
             <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
             <span className="hidden sm:inline">Disconnected</span>
           </span>
@@ -115,27 +118,41 @@ export const PresenceBar: React.FC<PresenceBarProps> = ({
     }
   };
 
+  const isConnected = connectionStatus === "connected";
+
   return (
     <div className="flex items-center gap-3">
       {getStatusBadge()}
-      <div className="flex items-center gap-1.5 bg-slate-900/80 px-2.5 py-1 rounded-md border border-slate-800 text-xs text-slate-300">
+      <div
+        className={`flex items-center gap-1.5 bg-slate-900/80 px-2.5 py-1 rounded-md border border-slate-800 text-xs text-slate-300 transition-opacity ${
+          !isConnected ? "opacity-60" : ""
+        }`}
+      >
         <Users className="w-3.5 h-3.5 text-slate-400" />
-        <span>{users.length} online</span>
-        <div className="flex items-center -space-x-1 ml-1.5 overflow-hidden">
-          {users.map((u) => {
-            const isSelf = u.name === currentUserName;
-            return (
-              <div
-                key={u.clientId}
-                title={`${u.name}${isSelf ? " (you)" : ""}`}
-                style={{ backgroundColor: u.color }}
-                className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm ring-1 ring-slate-900"
-              >
-                {u.name.slice(0, 1).toUpperCase()}
-              </div>
-            );
-          })}
-        </div>
+        <span>
+          {isConnected
+            ? `${users.length} online`
+            : connectionStatus === "connecting"
+            ? "Connecting..."
+            : "Offline"}
+        </span>
+        {isConnected && (
+          <div className="flex items-center -space-x-1 ml-1.5 overflow-hidden">
+            {users.map((u) => {
+              const isSelf = u.name === currentUserName;
+              return (
+                <div
+                  key={u.clientId}
+                  title={`${u.name}${isSelf ? " (you)" : ""}`}
+                  style={{ backgroundColor: u.color }}
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm ring-1 ring-slate-900"
+                >
+                  {u.name.slice(0, 1).toUpperCase()}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
