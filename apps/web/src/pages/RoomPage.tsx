@@ -53,6 +53,14 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [runDurationMs, setRunDurationMs] = useState<number | null>(null);
   const [runExitCode, setRunExitCode] = useState<number | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [lastRunId, setLastRunId] = useState<string | null>(null);
+  const [isExplaining, setIsExplaining] = useState<boolean>(false);
+  const [explanationData, setExplanationData] = useState<{
+    explanation: string;
+    suggested_fix?: string;
+    model?: string;
+    is_ai?: boolean;
+  } | null>(null);
   const [runHistoryOpen, setRunHistoryOpen] = useState<boolean>(false);
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState<boolean>(false);
   const [savedToast, setSavedToast] = useState<boolean>(false);
@@ -271,6 +279,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     setRunDurationMs(null);
     setRunExitCode(null);
     setActiveRunId(null);
+    setExplanationData(null);
 
     const tokenQuery = queryTokens.editorToken
       ? `?editor_token=${encodeURIComponent(queryTokens.editorToken)}`
@@ -306,6 +315,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
       setRunStatus(runData.status || "queued");
       if (runData.id) {
         setActiveRunId(runData.id);
+        setLastRunId(runData.id);
       }
     } catch (err: any) {
       setRunStatus("failed");
@@ -313,7 +323,6 @@ export const RoomPage: React.FC<RoomPageProps> = ({
       setActiveRunId(null);
     }
   }, [
-
     isReadOnly,
     isExecuting,
     session?.doc,
@@ -323,6 +332,47 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     currentLanguage,
     authFetch,
   ]);
+
+  const handleExplainError = useCallback(async () => {
+    const targetRunId = lastRunId || activeRunId;
+    if (!targetRunId || isExplaining) return;
+
+    setIsExplaining(true);
+    const tokenQuery = queryTokens.editorToken
+      ? `?editor_token=${encodeURIComponent(queryTokens.editorToken)}`
+      : queryTokens.viewerToken
+        ? `?viewer_token=${encodeURIComponent(queryTokens.viewerToken)}`
+        : queryTokens.generalToken
+          ? `?token=${encodeURIComponent(queryTokens.generalToken)}`
+          : "";
+
+    try {
+      const codeText = session?.doc ? session.doc.getText("monaco").toString() : "";
+      const res = await authFetch(
+        `/api/rooms/${encodeURIComponent(room?.slug || roomSlug)}/runs/${targetRunId}/explain/${tokenQuery}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: codeText }),
+        }
+      );
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Explanation failed with HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      setExplanationData(data);
+    } catch (err: any) {
+      setExplanationData({
+        explanation: `Unable to analyze error: ${err.message}`,
+        model: "error",
+      });
+    } finally {
+      setIsExplaining(false);
+    }
+  }, [lastRunId, activeRunId, isExplaining, queryTokens, room?.slug, roomSlug, session?.doc, authFetch]);
 
   // Global Keyboard Shortcuts
   useEffect(() => {
@@ -534,6 +584,10 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           durationMs={runDurationMs}
           exitCode={runExitCode}
           onClear={() => setRunOutput("")}
+          onExplainError={handleExplainError}
+          isExplaining={isExplaining}
+          explanationData={explanationData}
+          onClearExplanation={() => setExplanationData(null)}
         />
       </main>
 
