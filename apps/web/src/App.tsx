@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import HomePage from "./pages/HomePage";
 import RoomPage from "./pages/RoomPage";
 import { AuthProvider } from "./contexts/AuthContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 
 function MainContent() {
   const [currentRoom, setCurrentRoom] = useState<string | null>(() => {
@@ -76,9 +77,11 @@ function MainContent() {
 
 export function App() {
   return (
-    <AuthProvider>
-      <MainContent />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <MainContent />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

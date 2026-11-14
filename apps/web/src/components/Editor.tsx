@@ -4,6 +4,7 @@ import type { editor } from "monaco-editor";
 import { MonacoBinding } from "y-monaco";
 import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
+import { useTheme } from "../contexts/ThemeContext";
 
 interface EditorProps {
   doc: Y.Doc;
@@ -13,6 +14,7 @@ interface EditorProps {
 }
 
 export const Editor: React.FC<EditorProps> = ({ doc, provider, language, readOnly = false }) => {
+  const { theme } = useTheme();
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const bindingRef = useRef<MonacoBinding | null>(null);
   const [editorReady, setEditorReady] = useState(false);
@@ -68,11 +70,13 @@ export const Editor: React.FC<EditorProps> = ({ doc, provider, language, readOnl
   }, [editorReady, doc, provider]);
 
   return (
-    <div className="relative w-full h-full min-h-[500px] border border-slate-800 rounded-lg overflow-hidden bg-[#1e1e1e]">
+    <div className={`relative w-full h-full min-h-[500px] border rounded-lg overflow-hidden transition-colors ${
+      theme === "dark" ? "border-slate-800 bg-[#1e1e1e]" : "border-slate-300 bg-white shadow-sm"
+    }`}>
       <MonacoEditor
         height="100%"
         language={language === "cpp" ? "cpp" : language}
-        theme="vs-dark"
+        theme={theme === "dark" ? "vs-dark" : "vs"}
         options={{
           readOnly,
           fontSize: 14,
