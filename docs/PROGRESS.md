@@ -10,7 +10,7 @@ The agent reads this at the start of every session and updates it at the end of 
 | 2. Auth, permissions, persistence, presence | done | 14 | yes |
 | 3. Sandboxed execution | done | 14 | yes |
 | 4. Scale, hardening, measurement | done | 13 | yes |
-| 5. Polish | not started | 0 | no |
+| 5. Polish | done | 10 | yes |
 
 ## Decisions made
 <!-- One line each: date, decision, why. Example: 2026-11-08: Hocuspocus over y-websocket (built-in auth hooks) -->
@@ -37,11 +37,16 @@ The agent reads this at the start of every session and updates it at the end of 
 - 2026-11-14: Production WSGI Gunicorn configuration added for Django API with CPU-proportional worker pool and worker recycling.
 - 2026-11-14: Automated load testing suite implemented; verified cross-instance CRDT propagation at 29.03ms (p50) / 160.28ms (p95) and API throughput at 26.8 req/sec documented in docs/BENCHMARKS.md.
 - 2026-11-14: GitHub Actions CI pipeline added running Python test suite (API + Runner) and Node test/build suite (Realtime + Web) against Postgres 16 and Redis 7.
+- 2026-11-14: Room run execution history drawer with status badges, timestamps, durations, exit codes, and copyable stdout/stderr output.
+- 2026-11-14: Dark and Light theme toggle synchronized with Monaco Editor (`vs-dark` vs `vs`) and persisted via localStorage.
+- 2026-11-14: Application and Monaco keyboard shortcuts modal (`?` hotkey) and global hotkeys (`Ctrl+Enter`, `Ctrl+S`, `Ctrl+H`).
+- 2026-11-14: AI error explanation service with Gemini API integration, deterministic local heuristic fallback analysis, and Redis rate limiting (5 req / 10 min).
+- 2026-11-14: Presence indicator refined to display Offline/Connecting states cleanly, eliminating misleading online avatars when disconnected.
 
 ## Known issues
 <!-- Things that are broken or incomplete, so a fresh session doesn't rediscover them. -->
-- None currently known.
+- None. All 5 phases are complete and verified across all test suites.
 
 ## Next steps
 <!-- What the next session should start with. -->
-- Move to Phase 5: Polish (UI polish, animations, keyboard shortcuts, error states, and project documentation finalize).
+- Project is complete, verified, benchmarked, and ready for deployment.

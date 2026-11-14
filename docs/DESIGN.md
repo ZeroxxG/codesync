@@ -140,3 +140,25 @@ To scale beyond a single Node.js process without partitioning rooms across speci
 3. **Structured JSON Logging**:
    - Standardized JSON log output across Django API (`codesync.logging.JSONFormatter`), Celery runner (`runner.logging.JSONFormatter`), and Realtime service (`src/logger.ts`).
    - Request logging middleware attaches `request_id`, client IP, status code, and latency duration to all HTTP requests.
+
+---
+
+## 8. Frontend Polish, Theme Synchronization & AI Diagnostic Engine (Phase 5)
+
+### 8.1 Zero-Rebind Monaco Theme Synchronization
+- Changing editor themes dynamically in Monaco can cause costly re-renders or destroy active CRDT editor bindings if implemented naively.
+- CodeSync implements a React `ThemeContext` providing `dark` and `light` themes persisted in `localStorage`.
+- The Monaco editor instance updates its theme dynamically by switching the `theme` prop (`vs-dark` vs `vs`) while keeping the existing Monaco `editor` instance and `MonacoBinding` attached to the underlying `Y.Text` CRDT intact. This eliminates typing flicker and prevents document reload cycles.
+
+### 8.2 AI Error Diagnosis with Deterministic Heuristic Fallbacks
+- **Architecture**:
+  - `POST /api/rooms/<slug>/runs/<run_id>/explain/` diagnoses non-zero exit codes, compiler errors, and runtime exceptions.
+  - When a `GEMINI_API_KEY` is provided, requests are structured and submitted to Google Gemini API (`gemini-2.5-flash`) for deep root-cause analysis and actionable code patches.
+  - When running offline or without third-party API credentials, the endpoint automatically invokes an intelligent deterministic heuristic parser that parses stack traces (e.g., Python `ZeroDivisionError`, `NameError`, `SyntaxError`, C++ undefined references, missing `#include <iostream>`, and JavaScript `ReferenceError`).
+- **Defensive Rate Limiting**:
+  - Enforces a Redis sliding window rate limit of **5 requests per 10 minutes** per authenticated user (`explain_rate:<user_id>`), protecting backend API budgets and preventing LLM quota exhaustion.
+
+### 8.3 Resilient Presence & Connection State Machine
+- Awareness states in CRDTs inherently retain local client state in-memory prior to establishing a remote WebSocket connection.
+- CodeSync's `PresenceBar` couples awareness count directly with the underlying `connectionStatus` state machine (`connected`, `connecting`, `disconnected`).
+- When disconnected or connecting, the UI dims the indicator, reports `Offline` / `Connecting...`, and hides active collaborator pills, preventing misleading "online" user counts when the collaboration backend is unreachable.

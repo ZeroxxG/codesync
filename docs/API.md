@@ -251,3 +251,36 @@ Messages are published as JSON strings by the runner and relayed to frontend cli
 }
 ```
 
+---
+
+## 8. AI Error Explanation Endpoint (`/api/rooms/<slug>/runs/<run_id>/explain/`)
+
+Base URL: `http://localhost:8000/api/rooms/<slug>/runs/<run_id>/explain/`
+
+### `POST /api/rooms/<slug>/runs/<run_id>/explain/`
+Analyzes a failed run's source code and terminal error output to diagnose the root cause and provide structured fix suggestions using Gemini 1.5 or the built-in heuristic analysis engine.
+
+- **Permissions**: Requires room membership or guest access.
+- **Constraints**: Rejects successful runs (`exit_code == 0`) with `400 Bad Request`.
+- **Rate Limit**: Max 5 requests per 10 minutes per user/IP (`429 Too Many Requests`).
+- **Request Body**:
+```json
+{
+  "code": "print(10 / 0)"
+}
+```
+- **Response**: `200 OK`
+```json
+{
+  "run_id": "59841f69-c673-4428-808e-1cb46ee13a17",
+  "room_slug": "k7a_9B",
+  "language": "python",
+  "exit_code": 1,
+  "explanation": "### Root Cause: ZeroDivisionError\nThe program attempted to divide a number by zero (x / 0), which is mathematically undefined and raises an unhandled exception.",
+  "suggested_fix": "Guard the division with a conditional check or try-except block:\n\n```python\nif divisor != 0:\n    result = value / divisor\n```",
+  "model": "gemini-1.5-flash",
+  "is_ai": true
+}
+```
+
+

@@ -82,8 +82,12 @@ flowchart TD
 - **Empirical Benchmarks**: Automated load testing suite (`benchmarks/`) measuring real cross-instance sync latencies (p50: 29.03ms, p95: 160.28ms, 82.5 ops/sec) documented in [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md).
 - **GitHub Actions CI Pipeline**: Continuous integration workflow running lint, typecheck, and test suites across all 4 applications.
 
-### Upcoming Phases
-- **Phase 5**: Polish, themes, keyboard shortcuts, error states, and project documentation finalize.
+### Phase 5: Polish & Developer Experience (Complete)
+- **Run Execution History**: Full drawer modal displaying past execution runs, exit codes, wall-clock durations, timestamps, and copyable stdout/stderr output.
+- **Dark & Light Mode Synchronization**: Instant theme toggle synchronized with Monaco Editor theme (`vs-dark` vs `vs`) and persisted across sessions.
+- **Keyboard Shortcuts System**: Global shortcuts (`Ctrl+Enter` to run, `Ctrl+S` to save snapshot, `Ctrl+H` for history) and an interactive cheat-sheet modal triggered via `?`.
+- **AI Error Explanation**: Intelligent error root-cause diagnosis and code fix suggestions for runtime/syntax errors via Gemini API and local heuristic fallback, with Redis rate limiting (5 req / 10 min).
+- **Connection & Presence Polish**: Realtime presence indicator with pulse animations, clean offline/connecting indicators, and recent rooms quick-join pills.
 
 ---
 
@@ -134,7 +138,7 @@ pnpm dev
 ```bash
 cd apps/runner
 pip install -r requirements.txt
-celery -A runner worker -Q runner --loglevel=info
+celery -A runner.celery worker --loglevel=info --pool=solo
 ```
 
 **Terminal 4 (Vite Web App):**
