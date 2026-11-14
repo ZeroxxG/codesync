@@ -47,19 +47,24 @@ describe("Multi-Instance Realtime Clustering via Redis", () => {
   });
 
   afterAll(async () => {
+    const withTimeout = (p: Promise<any>, ms = 2000) =>
+      Promise.race([p, new Promise((resolve) => setTimeout(resolve, ms))]);
+
     try {
-      await server1?.destroy();
+      await withTimeout(server1?.destroy());
     } catch {}
     try {
-      await server2?.destroy();
+      await withTimeout(server2?.destroy());
     } catch {}
     try {
-      await stopRedisSubscriber();
+      await withTimeout(stopRedisSubscriber());
     } catch {}
     try {
-      await redisPublisher?.quit();
+      if (redisPublisher) {
+        redisPublisher.disconnect();
+      }
     } catch {}
-  });
+  }, 10000);
 
   it("synchronizes Yjs edits across two distinct server instances via Redis", async () => {
     const editRoom = `cluster-edit-${Date.now()}`;
