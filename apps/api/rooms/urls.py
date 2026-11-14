@@ -5,6 +5,7 @@ from .views import (
     RoomMembershipDetailView,
     RoomMembershipView,
     RoomRunDetailView,
+    RoomRunExplainView,
     RoomRunView,
     RoomViewerLinkView,
 )
@@ -17,4 +18,5 @@ urlpatterns = [
     path("<slug:slug>/viewer-link/", RoomViewerLinkView.as_view(), name="room-viewer-link"),
     path("<slug:slug>/runs/", RoomRunView.as_view(), name="room-runs"),
     path("<slug:slug>/runs/<uuid:run_id>/", RoomRunDetailView.as_view(), name="room-run-detail"),
+    path("<slug:slug>/runs/<uuid:run_id>/explain/", RoomRunExplainView.as_view(), name="room-run-explain"),
 ]

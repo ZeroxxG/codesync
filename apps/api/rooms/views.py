@@ -1,4 +1,5 @@
 import hashlib
+import os
 import uuid
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -392,4 +393,80 @@ class RoomRunDetailView(APIView):
 
         run = get_object_or_404(Run, id=run_id, room=room)
         return Response(RunSerializer(run).data, status=status.HTTP_200_OK)
+
+
+class RoomRunExplainView(APIView):
+    """
+    POST /api/rooms/<slug>/runs/<uuid:run_id>/explain/
+    Analyzes a failed run's output and source code to provide root-cause analysis
+    and suggested fixes using AI / heuristic analysis.
+    Protected by per-user rate limiting (5 req / 10 min) and room membership checks.
+    """
+
+    def post(self, request: Request, slug: str, run_id: uuid.UUID) -> Response:
+        room = get_object_or_404(Room, slug=slug)
+        token = (
+            request.query_params.get("editor_token")
+            or request.query_params.get("viewer_token")
+            or request.query_params.get("invite_token")
+            or request.query_params.get("token")
+        )
+        role = get_user_room_role(room, request.user, token)
+        if role == "none":
+            raise PermissionDenied("You do not have access to view runs in this room.")
+
+        run = get_object_or_404(Run, id=run_id, room=room)
+
+        if run.status == Run.Status.COMPLETED and run.exit_code == 0:
+            return Response(
+                {"error": "Only failed runs with non-zero exit codes can be explained."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Enforce rate limit via Redis
+        import redis
+        raw_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        redis_url = raw_url.replace("://localhost:", "://127.0.0.1:")
+        try:
+            r = redis.from_url(redis_url)
+            rate_key = (
+                f"explain_rate:{request.user.id}"
+                if request.user.is_authenticated
+                else f"explain_rate:ip:{request.META.get('REMOTE_ADDR', 'unknown')}"
+            )
+            count = r.incr(rate_key)
+            if count == 1:
+                r.expire(rate_key, 600)  # 10 minutes
+            if count > 5:
+                return Response(
+                    {"error": "AI explanation rate limit exceeded. Please wait a few minutes before trying again."},
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+        except Exception:
+            pass
+
+        from .ai_service import analyze_run_error
+
+        code = request.data.get("code", "")
+        analysis = analyze_run_error(
+            code=code,
+            output=run.output,
+            language=run.language,
+            exit_code=run.exit_code,
+        )
+
+        return Response(
+            {
+                "run_id": str(run.id),
+                "room_slug": room.slug,
+                "language": run.language,
+                "exit_code": run.exit_code,
+                "explanation": analysis["explanation"],
+                "suggested_fix": analysis.get("suggested_fix", ""),
+                "model": analysis.get("model", "codesync-heuristic-analyzer"),
+                "is_ai": analysis.get("is_ai", False),
+            },
+            status=status.HTTP_200_OK,
+        )
+
 
