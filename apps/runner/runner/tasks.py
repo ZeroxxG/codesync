@@ -3,7 +3,7 @@ import requests
 from . import config as cfg
 from .celery_app import app
 from .publisher import RedisPublisher
-from .sandbox import DockerSandboxExecutor
+from .sandbox import DockerSandboxExecutor, SandboxExecutionResult
 
 logger = logging.getLogger(__name__)
 
@@ -37,22 +37,34 @@ def execute_code(run_id: str, room_slug: str, language: str, code: str) -> dict:
     def on_output_chunk(chunk: str):
         publisher.publish_output_chunk(room_slug, run_id, chunk)
 
-    result = executor.execute(
-        run_id=run_id,
-        language=language,
-        code=code,
-        on_output_chunk=on_output_chunk,
-    )
+    try:
+        result = executor.execute(
+            run_id=run_id,
+            language=language,
+            code=code,
+            on_output_chunk=on_output_chunk,
+        )
+    except Exception as e:
+        logger.exception("Unexpected error in sandbox executor: %s", e)
+        result = SandboxExecutionResult(
+            exit_code=1,
+            status="failed",
+            duration_ms=0,
+            output=f"Runner execution error: {str(e)}",
+        )
 
     # 3. Publish completion event to Redis
-    publisher.publish_run_completed(
-        room_slug=room_slug,
-        run_id=run_id,
-        status=result.status,
-        exit_code=result.exit_code,
-        duration_ms=result.duration_ms,
-        output=result.output,
-    )
+    try:
+        publisher.publish_run_completed(
+            room_slug=room_slug,
+            run_id=run_id,
+            status=result.status,
+            exit_code=result.exit_code,
+            duration_ms=result.duration_ms,
+            output=result.output,
+        )
+    except Exception as e:
+        logger.warning("Could not publish completion to Redis: %s", e)
 
     # 4. Report final result back to Django internal API
     try:
@@ -71,3 +83,4 @@ def execute_code(run_id: str, room_slug: str, language: str, code: str) -> dict:
         logger.error("Failed to report run result to internal API: %s", e)
 
     return result.to_dict()
+

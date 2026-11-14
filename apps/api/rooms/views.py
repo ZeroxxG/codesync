@@ -347,7 +347,9 @@ class RoomRunView(APIView):
             celery_app.send_task(
                 "runner.tasks.execute_code",
                 args=[str(run.id), room.slug, language, code],
+                queue="runner",
             )
+
         except Exception as e:
             if r:
                 try:

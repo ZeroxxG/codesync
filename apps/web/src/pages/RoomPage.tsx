@@ -48,6 +48,8 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [runOutput, setRunOutput] = useState<string>("");
   const [runDurationMs, setRunDurationMs] = useState<number | null>(null);
   const [runExitCode, setRunExitCode] = useState<number | null>(null);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+
 
   // Extract all query tokens
   const queryTokens = useMemo(() => {
@@ -67,10 +69,10 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     const tokenQuery = queryTokens.viewerToken
       ? `viewer_token=${encodeURIComponent(queryTokens.viewerToken)}`
       : queryTokens.editorToken
-      ? `editor_token=${encodeURIComponent(queryTokens.editorToken)}`
-      : queryTokens.generalToken
-      ? `token=${encodeURIComponent(queryTokens.generalToken)}`
-      : "";
+        ? `editor_token=${encodeURIComponent(queryTokens.editorToken)}`
+        : queryTokens.generalToken
+          ? `token=${encodeURIComponent(queryTokens.generalToken)}`
+          : "";
 
     const url = `/api/rooms/${encodeURIComponent(roomSlug)}/${tokenQuery ? `?${tokenQuery}` : ""}`;
 
@@ -187,6 +189,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           if (data.output && !runOutput) {
             setRunOutput(data.output);
           }
+          setActiveRunId(null);
         }
       } catch {
         // Ignore non-json stateless payloads
@@ -199,6 +202,50 @@ export const RoomPage: React.FC<RoomPageProps> = ({
       session.provider.off("stateless", handleStateless);
     };
   }, [session?.provider, room?.slug, roomSlug, runOutput]);
+
+  // Polling fallback: if WebSocket drops or misses events while queued/running,
+  // query Django REST API directly until a terminal status is returned.
+  useEffect(() => {
+    if (!activeRunId || (runStatus !== "queued" && runStatus !== "running")) {
+      return;
+    }
+
+    const tokenQuery = queryTokens.editorToken
+      ? `?editor_token=${encodeURIComponent(queryTokens.editorToken)}`
+      : queryTokens.generalToken
+        ? `?token=${encodeURIComponent(queryTokens.generalToken)}`
+        : "";
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await authFetch(
+          `/api/rooms/${encodeURIComponent(room?.slug || roomSlug)}/runs/${activeRunId}/${tokenQuery}`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (
+          data.status === "completed" ||
+          data.status === "failed" ||
+          data.status === "timeout" ||
+          data.status === "oom"
+        ) {
+          setRunStatus(data.status);
+          setRunExitCode(data.exit_code ?? 0);
+          setRunDurationMs(data.duration_ms ?? null);
+          if (data.output) {
+            setRunOutput(data.output);
+          }
+          setActiveRunId(null);
+        } else if (data.status === "running") {
+          setRunStatus("running");
+        }
+      } catch {
+        // Silently ignore polling network failures
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [activeRunId, runStatus, room?.slug, roomSlug, queryTokens, authFetch]);
 
   const handleRunCode = useCallback(async () => {
     if (isReadOnly || isExecuting || !session?.doc) return;
@@ -216,12 +263,13 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     setRunOutput("");
     setRunDurationMs(null);
     setRunExitCode(null);
+    setActiveRunId(null);
 
     const tokenQuery = queryTokens.editorToken
       ? `?editor_token=${encodeURIComponent(queryTokens.editorToken)}`
       : queryTokens.generalToken
-      ? `?token=${encodeURIComponent(queryTokens.generalToken)}`
-      : "";
+        ? `?token=${encodeURIComponent(queryTokens.generalToken)}`
+        : "";
 
     try {
       const res = await authFetch(
@@ -243,16 +291,22 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         const msg = errData.error || `Execution failed with HTTP ${res.status}`;
         setRunStatus("failed");
         setRunOutput(`Error: ${msg}\n`);
+        setActiveRunId(null);
         return;
       }
 
       const runData = await res.json();
       setRunStatus(runData.status || "queued");
+      if (runData.id) {
+        setActiveRunId(runData.id);
+      }
     } catch (err: any) {
       setRunStatus("failed");
       setRunOutput(`Failed to trigger execution: ${err.message}\n`);
+      setActiveRunId(null);
     }
   }, [
+
     isReadOnly,
     isExecuting,
     session?.doc,
@@ -392,16 +446,15 @@ export const RoomPage: React.FC<RoomPageProps> = ({
               isReadOnly
                 ? "Viewers are not permitted to run code"
                 : isExecuting
-                ? "Code execution in progress..."
-                : "Run Code (Ctrl+Enter)"
+                  ? "Code execution in progress..."
+                  : "Run Code (Ctrl+Enter)"
             }
-            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md font-semibold transition-all ${
-              isReadOnly
+            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md font-semibold transition-all ${isReadOnly
                 ? "bg-slate-800/60 text-slate-500 cursor-not-allowed border border-slate-700/50"
                 : isExecuting
-                ? "bg-amber-600/70 text-amber-100 cursor-wait animate-pulse"
-                : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-900/30"
-            }`}
+                  ? "bg-amber-600/70 text-amber-100 cursor-wait animate-pulse"
+                  : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-900/30"
+              }`}
           >
             {isExecuting ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />

@@ -11,8 +11,18 @@ load_dotenv(BASE_DIR / ".env")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", REDIS_URL)
 
-INTERNAL_API_URL = os.environ.get("INTERNAL_API_URL", "http://localhost:8000/internal")
+_raw_internal = os.environ.get("INTERNAL_API_URL", "http://localhost:8000/internal").strip().rstrip("/")
+if not _raw_internal.endswith("/internal"):
+    INTERNAL_API_URL = f"{_raw_internal}/internal"
+else:
+    INTERNAL_API_URL = _raw_internal
+
+# On local development, avoid Windows IPv6 resolution timeouts by pointing to 127.0.0.1
+if "://localhost:" in INTERNAL_API_URL:
+    INTERNAL_API_URL = INTERNAL_API_URL.replace("://localhost:", "://127.0.0.1:")
+
 INTERNAL_API_TOKEN = os.environ.get("INTERNAL_API_TOKEN", "codesync-internal-token-change-in-prod")
+
 if not INTERNAL_API_TOKEN or INTERNAL_API_TOKEN == "CHANGE_ME":
     INTERNAL_API_TOKEN = "codesync-internal-token-change-in-prod"
 

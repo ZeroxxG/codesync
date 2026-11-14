@@ -48,3 +48,6 @@ benchmarks/output/
 .DS_Store
 Thumbs.db
 *.swp
+.agents/
+skills-lock.json
+

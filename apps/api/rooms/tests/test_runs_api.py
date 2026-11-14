@@ -80,7 +80,9 @@ def test_owner_can_trigger_run(mock_redis, mock_celery) -> None:
     mock_celery.assert_called_once_with(
         "runner.tasks.execute_code",
         args=[str(run.id), room.slug, "python", "print('hello from codesync')"],
+        queue="runner",
     )
+
 
 
 @pytest.mark.django_db
