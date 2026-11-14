@@ -14,33 +14,35 @@ flowchart TD
         U3["User 3 (Charlie)"]
     end
 
-    subgraph Frontend["Frontend Tier (Vite + React)"]
-        Web["apps/web (:5173)"]
+    subgraph Gateway["Reverse Proxy & Gateway"]
+        Nginx["Nginx Reverse Proxy (:80, :1234)<br/>Load Balancer & WS Upgrade"]
     end
 
-    subgraph RealtimeTier["Realtime Collaboration Tier"]
-        Hocus["apps/realtime (:1234)<br/>Node.js + Hocuspocus"]
+    subgraph RealtimeCluster["Realtime Collaboration Cluster (Phase 4)"]
+        H1["Realtime Node 1 (:1234)<br/>Hocuspocus + Yjs"]
+        H2["Realtime Node 2 (:1234)<br/>Hocuspocus + Yjs"]
     end
 
     subgraph APITier["Business Logic & Persistence"]
-        API["apps/api (:8000)<br/>Django + DRF"]
+        API["apps/api (:8000)<br/>Gunicorn WSGI + Django REST"]
         DB[("PostgreSQL (:5432)")]
     end
 
-    subgraph ExecutionTier["Sandboxed Execution (Phase 3)"]
-        Redis[("Redis (:6379)<br/>Broker & Pub/Sub")]
+    subgraph ExecutionTier["Sandboxed Execution"]
+        Redis[("Redis (:6379)<br/>Yjs Cluster Backplane & Pub/Sub")]
         Runner["apps/runner<br/>Celery Worker + Docker"]
     end
 
-    U1 & U2 & U3 -->|HTTP/REST| Web
-    Web -->|Proxy /api| API
-    U1 & U2 & U3 <-->|WebSocket Yjs Sync & Awareness| Hocus
-    API <-->|SQL Queries| DB
+    U1 & U2 & U3 <-->|HTTP & WebSocket| Nginx
+    Nginx -->|Proxy /api & /health| API
+    Nginx <-->|ip_hash WebSocket Balance| H1 & H2
+    H1 & H2 <-->|Yjs Sync & Awareness Pub/Sub| Redis
+    API <-->|SQL Queries (Indexed)| DB
     API -.->|Task Dispatch| Redis
     Redis -.->|Consume Job| Runner
-    Runner -.->|Publish Output| Redis
-    Redis -.->|Subscribe Output| Hocus
-    Hocus -.->|Internal Auth & Snapshots| API
+    Runner -.->|Publish Output (room:*:runs)| Redis
+    Redis -.->|Execution Output| H1 & H2
+    H1 & H2 -.->|Internal Auth & Snapshots| API
 ```
 
 ---
@@ -70,9 +72,18 @@ flowchart TD
 - **Adversarial Attack Test Suite**: 8 automated security tests verifying containment against infinite loops, memory bombs, fork bombs, network probes, rootfs writes, and secret leaks.
 - **Stale Container Reaper**: Background daemon sweeping orphaned sandbox containers older than 30s.
 
+### Phase 4: Scale, Hardening & Measurement (Complete)
+- **Multi-Instance Realtime Clustering**: Hocuspocus Redis extension synchronizing Yjs document updates and awareness seamlessly across multiple server nodes.
+- **Nginx Reverse Proxy & Load Balancer**: Reverse proxy routing API and load-balancing WebSockets (`ip_hash`) across realtime instances on ports 80 and 1234.
+- **Production WSGI Deployment**: Django API configured with Gunicorn production WSGI server, CPU-proportional worker pool, and worker recycling.
+- **Database Indexing & N+1 Regression Prevention**: Composite database indexes on hot paths (`RoomMembership`, `Run`, `Room`) and ORM optimizations with automated query-count regression tests.
+- **Security Hardening**: Strict CORS, HTTP-only/secure cookies, 2.5MB upload limits, and 1MB Hocuspocus message size caps.
+- **Health Checks & Structured Logging**: Standardized JSON logs across all services with request tracing and dedicated `/health/` endpoints.
+- **Empirical Benchmarks**: Automated load testing suite (`benchmarks/`) measuring real cross-instance sync latencies (p50: 29.03ms, p95: 160.28ms, 82.5 ops/sec) documented in [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md).
+- **GitHub Actions CI Pipeline**: Continuous integration workflow running lint, typecheck, and test suites across all 4 applications.
+
 ### Upcoming Phases
-- **Phase 4**: Multi-instance horizontal scaling, load balancing, and benchmarks.
-- **Phase 5**: Polish, themes, keyboard shortcuts, and AI error analysis.
+- **Phase 5**: Polish, themes, keyboard shortcuts, error states, and project documentation finalize.
 
 ---
 
