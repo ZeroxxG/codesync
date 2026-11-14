@@ -40,7 +40,7 @@ def get_user_room_role(room: Room, user, token: str | None = None) -> str:
     if room.owner_id == user.id:
         return RoomMembership.Role.OWNER
 
-    membership = room.memberships.filter(user=user).first()
+    membership = next((m for m in room.memberships.all() if m.user_id == user.id), None)
     if membership:
         return membership.role
 
@@ -54,15 +54,17 @@ class RoomListCreateView(APIView):
     """
 
     def get(self, request: Request) -> Response:
+        base_qs = Room.objects.select_related("owner").prefetch_related("memberships")
         if request.user.is_authenticated:
-            rooms = Room.objects.filter(
+            rooms = base_qs.filter(
                 Q(owner=request.user) | Q(memberships__user=request.user)
             ).distinct()[:50]
         else:
-            rooms = Room.objects.all()[:20]
+            rooms = base_qs.all()[:20]
 
         serializer = RoomSerializer(rooms, many=True, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
 
     def post(self, request: Request) -> Response:
         serializer = CreateRoomSerializer(data=request.data or {})
@@ -91,11 +93,13 @@ class RoomDetailView(APIView):
     """
 
     def get(self, request: Request, slug: str) -> Response:
-        room = Room.objects.filter(slug=slug).first()
+        base_qs = Room.objects.select_related("owner").prefetch_related("memberships")
+        room = base_qs.filter(slug=slug).first()
         if not room:
-            room = Room.objects.filter(viewer_token=slug).first()
+            room = base_qs.filter(viewer_token=slug).first()
         if not room and hasattr(Room, "editor_token"):
-            room = Room.objects.filter(editor_token=slug).first()
+            room = base_qs.filter(editor_token=slug).first()
+
 
         if not room:
             raise Http404("Room not found")
@@ -261,8 +265,9 @@ class RoomRunView(APIView):
         if role == "none":
             raise PermissionDenied("You do not have access to view runs in this room.")
 
-        runs = room.runs.all()[:20]
+        runs = room.runs.select_related("room", "user").all()[:20]
         serializer = RunSerializer(runs, many=True)
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request: Request, slug: str) -> Response:

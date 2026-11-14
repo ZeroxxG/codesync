@@ -84,9 +84,10 @@ class RoomSerializer(serializers.ModelSerializer):
         if request.user and request.user.is_authenticated:
             if obj.owner_id == request.user.id:
                 return "owner"
-            membership = obj.memberships.filter(user=request.user).first()
+            membership = next((m for m in obj.memberships.all() if m.user_id == request.user.id), None)
             if membership:
                 return membership.role
+
 
         # If room has no owner (Phase 1 legacy anonymous room), default to editor
         if not obj.owner_id:
