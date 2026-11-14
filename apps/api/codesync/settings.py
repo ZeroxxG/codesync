@@ -41,7 +41,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "codesync.middleware.RequestLoggingMiddleware",
 ]
+
 
 ROOT_URLCONF = "codesync.urls"
 
@@ -183,5 +185,39 @@ CELERY_TASK_DEFAULT_QUEUE = "runner"
 CELERY_TASK_ROUTES = {
     "runner.tasks.*": {"queue": "runner"},
 }
+
+# Structured JSON logging configuration
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "json": {
+            "()": "codesync.logging.JSONFormatter",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "codesync": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
+
 
 
