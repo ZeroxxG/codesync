@@ -66,7 +66,21 @@ export const server = Server.configure({
     return document;
   },
 
+  async beforeHandleMessage(data) {
+    const { update, documentName } = data;
+    const maxDocBytes = Number(process.env.MAX_DOCUMENT_BYTES || 1048576);
+    if (update && update.byteLength > maxDocBytes) {
+      log("warn", "Oversized message update rejected", {
+        room: documentName,
+        byteLength: update.byteLength,
+        limit: maxDocBytes,
+      });
+      throw new Error(`Message update size (${update.byteLength} bytes) exceeds limit (${maxDocBytes} bytes)`);
+    }
+  },
+
   async onChange(data) {
+
     const { documentName, document } = data;
     debounceRoomSave(documentName, document);
   },
