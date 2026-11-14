@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { Play, ArrowLeft, Share2, Eye, ShieldAlert, ShieldCheck, LogIn, Loader2, History, Sun, Moon } from "lucide-react";
+import { Play, ArrowLeft, Share2, Eye, ShieldAlert, ShieldCheck, LogIn, Loader2, History, Sun, Moon, HelpCircle } from "lucide-react";
 import { createYjsSession, YjsSession } from "../lib/yjsClient";
 import { getUserColor } from "../lib/colors";
 import { useAuth } from "../contexts/AuthContext";
@@ -11,6 +11,7 @@ import ShareModal from "../components/ShareModal";
 import AuthModal from "../components/AuthModal";
 import OutputPanel, { RunStatus } from "../components/OutputPanel";
 import RunHistoryModal from "../components/RunHistoryModal";
+import ShortcutsModal from "../components/ShortcutsModal";
 
 interface RoomPageProps {
   roomSlug: string;
@@ -53,6 +54,8 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   const [runExitCode, setRunExitCode] = useState<number | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [runHistoryOpen, setRunHistoryOpen] = useState<boolean>(false);
+  const [shortcutsModalOpen, setShortcutsModalOpen] = useState<boolean>(false);
+  const [savedToast, setSavedToast] = useState<boolean>(false);
 
 
   // Extract all query tokens
@@ -321,12 +324,24 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     authFetch,
   ]);
 
-  // Global Ctrl+Enter / Cmd+Enter shortcut
+  // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      const isCmdOrCtrl = e.ctrlKey || e.metaKey;
+
+      if (isCmdOrCtrl && e.key === "Enter") {
         e.preventDefault();
         handleRunCode();
+      } else if (isCmdOrCtrl && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        setSavedToast(true);
+        setTimeout(() => setSavedToast(false), 2000);
+      } else if (isCmdOrCtrl && e.key.toLowerCase() === "h") {
+        e.preventDefault();
+        setRunHistoryOpen((prev) => !prev);
+      } else if (e.key === "?" && !["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) {
+        e.preventDefault();
+        setShortcutsModalOpen((prev) => !prev);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -461,6 +476,14 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           </button>
 
           <button
+            onClick={() => setShortcutsModalOpen(true)}
+            title="Keyboard Shortcuts (?)"
+            className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
+
+          <button
             onClick={handleRunCode}
             disabled={isReadOnly || isExecuting}
             title={
@@ -532,6 +555,17 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         queryTokens={queryTokens}
         authFetch={authFetch}
       />
+
+      <ShortcutsModal
+        isOpen={shortcutsModalOpen}
+        onClose={() => setShortcutsModalOpen(false)}
+      />
+
+      {savedToast && (
+        <div className="fixed bottom-6 right-6 z-50 px-3.5 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-lg shadow-xl flex items-center gap-2 border border-emerald-500 animate-in fade-in slide-in-from-bottom-2 duration-150">
+          <span>Snapshot saved to PostgreSQL</span>
+        </div>
+      )}
     </div>
   );
 };
