@@ -18,8 +18,23 @@ export const HomePage: React.FC<HomePageProps> = ({ onJoinRoom }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
+  const [recentRooms, setRecentRooms] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("codesync_recent_rooms") || "[]");
+    } catch {
+      return [];
+    }
+  });
 
   const activeDisplayName = user ? user.username : userName;
+
+  const saveRecentRoom = (slug: string) => {
+    try {
+      const updated = [slug, ...recentRooms.filter((s) => s !== slug)].slice(0, 5);
+      setRecentRooms(updated);
+      localStorage.setItem("codesync_recent_rooms", JSON.stringify(updated));
+    } catch {}
+  };
 
   const handleCreateRoom = async () => {
     setLoading(true);
@@ -35,6 +50,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onJoinRoom }) => {
         throw new Error(`Failed to create room: ${res.statusText}`);
       }
       const data = await res.json();
+      saveRecentRoom(data.slug);
       onJoinRoom(data.slug, activeDisplayName);
     } catch (err: any) {
       setError(err.message || "Failed to create room");
@@ -46,8 +62,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onJoinRoom }) => {
   const handleJoinExisting = (e: React.FormEvent) => {
     e.preventDefault();
     if (!roomSlug.trim()) return;
+    const cleanSlug = roomSlug.trim().replace(/^.*[?&]room=/, "");
     localStorage.setItem("codesync_user", activeDisplayName);
-    onJoinRoom(roomSlug.trim(), activeDisplayName);
+    saveRecentRoom(cleanSlug);
+    onJoinRoom(cleanSlug, activeDisplayName);
   };
 
   return (
@@ -150,6 +168,26 @@ export const HomePage: React.FC<HomePageProps> = ({ onJoinRoom }) => {
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
+
+          {recentRooms.length > 0 && (
+            <div className="pt-2 border-t border-slate-800/80">
+              <span className="text-[11px] font-medium text-slate-400 block mb-2">Recent Rooms</span>
+              <div className="flex flex-wrap gap-1.5">
+                {recentRooms.map((slug) => (
+                  <button
+                    key={slug}
+                    onClick={() => {
+                      saveRecentRoom(slug);
+                      onJoinRoom(slug, activeDisplayName);
+                    }}
+                    className="px-2.5 py-1 text-xs font-mono bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700/60 transition-colors"
+                  >
+                    #{slug}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

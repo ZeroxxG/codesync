@@ -92,11 +92,26 @@ export const PresenceBar: React.FC<PresenceBarProps> = ({
   const getStatusBadge = () => {
     switch (connectionStatus) {
       case "connected":
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-900/60 text-emerald-300 border border-emerald-700/50">Connected</span>;
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="hidden sm:inline">Connected</span>
+          </span>
+        );
       case "connecting":
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-900/60 text-amber-300 border border-amber-700/50 animate-pulse">Connecting...</span>;
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            <span className="hidden sm:inline">Connecting...</span>
+          </span>
+        );
       default:
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-rose-900/60 text-rose-300 border border-rose-700/50">Disconnected</span>;
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+            <span className="hidden sm:inline">Disconnected</span>
+          </span>
+        );
     }
   };
 
