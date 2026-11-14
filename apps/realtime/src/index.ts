@@ -133,8 +133,9 @@ export const server = Server.configure({
 
 
 if (process.env.NODE_ENV !== "test") {
-  server.listen().then(() => {
-    console.log(`[Realtime] Hocuspocus collaboration server listening on port ${port}`);
-    initRedisSubscriber(server);
+  server.listen().then(async () => {
+    log("info", "Hocuspocus collaboration server listening", { port });
+    await initRedisSubscriber(server);
   });
 }
+
