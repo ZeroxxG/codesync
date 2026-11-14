@@ -81,7 +81,30 @@ export const server = Server.configure({
     const { documentName, clientsCount } = data;
     console.log(`[Realtime] Client disconnected from "${documentName}". Remaining clients: ${clientsCount}`);
   },
+
+  async onRequest(data) {
+    const { request, response, instance } = data;
+    const url = request.url?.split("?")[0];
+    if (url === "/health" || url === "/health/") {
+      response.writeHead(200, {
+        "Content-Type": "application/json",
+      });
+      response.end(
+        JSON.stringify({
+          status: "healthy",
+          service: "codesync-realtime",
+          port,
+          documents_count: instance.documents.size,
+          timestamp: new Date().toISOString(),
+        })
+      );
+      // Falsy rejection halts Hocuspocus default response without throwing an unhandled error
+      return Promise.reject();
+    }
+  },
+
 });
+
 
 if (process.env.NODE_ENV !== "test") {
   server.listen().then(() => {
