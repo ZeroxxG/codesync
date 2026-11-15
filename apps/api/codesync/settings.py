@@ -146,13 +146,18 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # CSRF trusted origins
 csrf_origins_raw = os.environ.get(
     "DJANGO_CSRF_TRUSTED_ORIGINS",
-    "https://codesyncapp.duckdns.org"
+    "https://codesyncapp.duckdns.org,https://*.vercel.app"
 )
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()
     for origin in csrf_origins_raw.split(",")
     if origin.strip()
 ]
+if "https://*.vercel.app" not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append("https://*.vercel.app")
+if "https://codesyncapp.duckdns.org" not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append("https://codesyncapp.duckdns.org")
+
 DATA_UPLOAD_MAX_MEMORY_SIZE = 2621440  # 2.5 MB cap
 FILE_UPLOAD_MAX_MEMORY_SIZE = 2621440
 
@@ -165,8 +170,14 @@ CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = not DEBUG
 
 # CORS
-cors_origins_raw = os.environ.get("DJANGO_CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+cors_origins_raw = os.environ.get("DJANGO_CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,https://codesyncapp.duckdns.org")
 CORS_ALLOWED_ORIGINS = [o.strip() for o in cors_origins_raw.split(",") if o.strip()]
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
+    r"^https://codesyncapp\.duckdns\.org$",
+    r"^http://localhost(:\d+)?$",
+    r"^http://127\.0\.0\.1(:\d+)?$",
+]
 CORS_ALLOW_CREDENTIALS = True
 
 
