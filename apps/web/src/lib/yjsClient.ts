@@ -32,9 +32,15 @@ export function createYjsSession(options: CreateYjsSessionOptions): YjsSession {
 
   const doc = new Y.Doc();
 
+  const isProd = Boolean((import.meta as any).env?.PROD);
+  const defaultWsHost = isProd ? "codesyncapp.duckdns.org" : window.location.hostname;
+  const defaultWsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const defaultUrl = isProd
+    ? `${defaultWsProto}//${defaultWsHost}`
+    : `${defaultWsProto}//${defaultWsHost}:1234`;
+
   const realtimeUrl =
-    (import.meta as any).env?.VITE_REALTIME_URL ||
-    `ws://${window.location.hostname}:1234`;
+    (import.meta as any).env?.VITE_REALTIME_URL || defaultUrl;
 
   const parameters: Record<string, string> = {
     user: userName,
