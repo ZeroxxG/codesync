@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import * as Y from "yjs";
 import { Code2 } from "lucide-react";
+import { resolveApiUrl } from "../lib/api";
 
 interface LanguageSelectorProps {
   doc: Y.Doc;
@@ -58,7 +59,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
     onLanguageChange?.(newLang);
 
     // Persist to Django API in background
-    fetch(`/api/rooms/${roomSlug}/`, {
+    fetch(resolveApiUrl(`/api/rooms/${roomSlug}/`), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ language: newLang }),

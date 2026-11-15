@@ -47,7 +47,16 @@ export const HomePage: React.FC<HomePageProps> = ({ onJoinRoom }) => {
         body: JSON.stringify({ name: `${activeDisplayName}'s Room`, language: "python" }),
       });
       if (!res.ok) {
-        throw new Error(`Failed to create room: ${res.statusText}`);
+        let errorDetail = "";
+        try {
+          const errData = await res.json();
+          errorDetail = errData.detail || errData.error || (typeof errData === "object" ? JSON.stringify(errData) : "");
+        } catch {
+          try {
+            errorDetail = await res.text();
+          } catch {}
+        }
+        throw new Error(errorDetail || `Failed to create room (HTTP ${res.status}: ${res.statusText || "Server Error"})`);
       }
       const data = await res.json();
       saveRecentRoom(data.slug);

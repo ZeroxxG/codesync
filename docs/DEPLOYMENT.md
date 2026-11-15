@@ -8,7 +8,7 @@ This guide documents the production deployment of CodeSync using a hybrid archit
 ---
 
 ## 1. Architecture Overview
-
+ 
 - **Frontend**: Vercel serves the React SPA and proxies `/api/*` requests to the Azure VM via `apps/web/vercel.json`.
 - **Backend Stack**:
   - `api`: Django 5.1 + Gunicorn on port `8000`.
@@ -97,7 +97,7 @@ echo \
   sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 sudo apt-get update
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin 
 
 sudo usermod -aG docker azureuser
 newgrp docker

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { resolveApiUrl } from "../lib/api";
 
 export interface User {
   id: number;
@@ -36,7 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       try {
-        const res = await fetch("/api/auth/me/", {
+        const res = await fetch(resolveApiUrl("/api/auth/me/"), {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
@@ -47,7 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (mounted) setUser(userData);
         } else if (res.status === 401 && refreshToken) {
           // Attempt refresh
-          const refreshRes = await fetch("/api/auth/refresh/", {
+          const refreshRes = await fetch(resolveApiUrl("/api/auth/refresh/"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ refresh: refreshToken }),
@@ -63,7 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (mounted) setAccessToken(data.access);
 
             // Retry me
-            const retryMe = await fetch("/api/auth/me/", {
+            const retryMe = await fetch(resolveApiUrl("/api/auth/me/"), {
               headers: { Authorization: `Bearer ${data.access}` },
             });
             if (retryMe.ok && mounted) {
@@ -94,7 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [accessToken, refreshToken]);
 
   const login = async (username: string, password: string) => {
-    const res = await fetch("/api/auth/login/", {
+    const res = await fetch(resolveApiUrl("/api/auth/login/"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
@@ -115,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (username: string, email: string, password: string, passwordConfirm: string) => {
-    const res = await fetch("/api/auth/register/", {
+    const res = await fetch(resolveApiUrl("/api/auth/register/"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -144,7 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     if (accessToken && refreshToken) {
       try {
-        await fetch("/api/auth/logout/", {
+        await fetch(resolveApiUrl("/api/auth/logout/"), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -170,11 +171,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       headers.set("Authorization", `Bearer ${accessToken}`);
     }
 
-    let response = await fetch(url, { ...options, headers });
+    const targetUrl = resolveApiUrl(url);
+    let response = await fetch(targetUrl, { ...options, headers });
 
     // Handle token expiration & retry once
     if (response.status === 401 && refreshToken) {
-      const refreshRes = await fetch("/api/auth/refresh/", {
+      const refreshRes = await fetch(resolveApiUrl("/api/auth/refresh/"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh: refreshToken }),
@@ -185,7 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAccessToken(data.access);
         localStorage.setItem("codesync_access_token", data.access);
         headers.set("Authorization", `Bearer ${data.access}`);
-        response = await fetch(url, { ...options, headers });
+        response = await fetch(targetUrl, { ...options, headers });
       } else {
         await logout();
       }
