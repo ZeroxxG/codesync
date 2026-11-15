@@ -18,10 +18,11 @@ services:
     profiles:
       - prod
     restart: always
-    volumes: []
+    ports: !override []
+    volumes: !override []
     environment:
       DJANGO_DEBUG: "False"
-      DJANGO_ALLOWED_HOSTS: "*"
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       POSTGRES_DB: ${POSTGRES_DB:-codesync}
@@ -29,7 +30,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       REDIS_URL: redis://redis:6379/0
       INTERNAL_API_URL: http://api:8000
-    depends_on:
+    depends_on: !override
       redis:
         condition: service_healthy
 
@@ -37,7 +38,7 @@ services:
     profiles:
       - prod
     restart: always
-    volumes: []
+    volumes: !override []
     environment:
       PORT: 1234
       REDIS_URL: redis://redis:6379/0
@@ -50,7 +51,7 @@ services:
     profiles:
       - prod
     restart: always
-    volumes: []
+    volumes: !override []
     environment:
       PORT: 1234
       REDIS_URL: redis://redis:6379/0
@@ -60,14 +61,27 @@ services:
         condition: service_healthy
 
   runner:
+    build: ./apps/runner
     profiles:
       - prod
     restart: always
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+    env_file: !override []
     environment:
       REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
       INTERNAL_API_URL: http://api:8000
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
+      EXECUTION_TIMEOUT_SECONDS: ${EXECUTION_TIMEOUT_SECONDS:-10}
+      MEMORY_LIMIT: ${MEMORY_LIMIT:-128m}
+      MEMSWAP_LIMIT: ${MEMSWAP_LIMIT:-128m}
+      NANO_CPUS: ${NANO_CPUS:-500000000}
+      PIDS_LIMIT: ${PIDS_LIMIT:-64}
+      MAX_OUTPUT_BYTES: ${MAX_OUTPUT_BYTES:-65536}
+      SANDBOX_IMAGE_PYTHON: ${SANDBOX_IMAGE_PYTHON:-codesync-sandbox-python:latest}
+      SANDBOX_IMAGE_JAVASCRIPT: ${SANDBOX_IMAGE_JAVASCRIPT:-codesync-sandbox-javascript:latest}
+      SANDBOX_IMAGE_CPP: ${SANDBOX_IMAGE_CPP:-codesync-sandbox-cpp:latest}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       redis:
         condition: service_healthy
@@ -76,7 +90,7 @@ services:
     profiles:
       - prod
     restart: always
-    ports:
+    ports: !override
       - "127.0.0.1:6379:6379"
 
   nginx:
@@ -89,6 +103,8 @@ services:
       - "1234:1234"
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
     depends_on:
       - api
       - realtime-1

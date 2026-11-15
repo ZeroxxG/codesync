@@ -140,6 +140,19 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+# HTTPS behind Nginx reverse proxy
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# CSRF trusted origins
+csrf_origins_raw = os.environ.get(
+    "DJANGO_CSRF_TRUSTED_ORIGINS",
+    "https://codesyncapp.duckdns.org"
+)
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in csrf_origins_raw.split(",")
+    if origin.strip()
+]
 DATA_UPLOAD_MAX_MEMORY_SIZE = 2621440  # 2.5 MB cap
 FILE_UPLOAD_MAX_MEMORY_SIZE = 2621440
 

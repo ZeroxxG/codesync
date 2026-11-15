@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://YOUR_AZURE_VM_IP_OR_DOMAIN/api/:path*"
+      "destination": "https://codesyncapp.duckdns.org/api/:path*"
     },
     {
       "source": "/(.*)",
