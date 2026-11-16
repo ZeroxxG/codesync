@@ -49,7 +49,16 @@ class DockerSandboxExecutor:
     @property
     def client(self) -> docker.DockerClient:
         if self._client is None:
-            self._client = docker.from_env()
+            try:
+                self._client = docker.from_env()
+                self._client.ping()
+            except Exception as e:
+                err_msg = str(e)
+                if "FileNotFoundError" in err_msg or "Connection refused" in err_msg or "docker_engine" in err_msg:
+                    raise DockerException("Docker daemon is not running or unreachable. Please start Docker Desktop / dockerd.") from e
+                if "permission denied" in err_msg.lower() or "access is denied" in err_msg.lower():
+                    raise DockerException("Docker daemon permission denied. Ensure current user has permission to access the Docker socket.") from e
+                raise DockerException(f"Cannot connect to Docker daemon: {err_msg}") from e
         return self._client
 
     def execute(
@@ -69,6 +78,30 @@ class DockerSandboxExecutor:
             )
 
         image = cfg.SANDBOX_IMAGES[lang]
+
+        # Verify Docker daemon is reachable
+        try:
+            _ = self.client
+        except DockerException as e:
+            return SandboxExecutionResult(
+                exit_code=1,
+                status="failed",
+                duration_ms=0,
+                output=f"Docker error: {str(e)}",
+            )
+
+        # Verify sandbox image is built and available locally
+        try:
+            self.client.images.get(image)
+        except docker.errors.ImageNotFound:
+            return SandboxExecutionResult(
+                exit_code=1,
+                status="failed",
+                duration_ms=0,
+                output=f"Sandbox image '{image}' not found. Run 'make setup' or 'make build-sandboxes' to build required sandbox images.",
+            )
+        except Exception as e:
+            logger.warning("Could not pre-verify image %s: %s", image, e)
         if lang == "python":
             filename = "code.py"
             command = ["python", "-u", "/tmp/code.py"]
@@ -98,6 +131,13 @@ class DockerSandboxExecutor:
                 host_code_path = os.path.join(td, filename)
                 with open(host_code_path, "w", encoding="utf-8") as f:
                     f.write(code)
+
+                # Ensure read permissions for non-root container user 10001:10001
+                try:
+                    os.chmod(td, 0o755)
+                    os.chmod(host_code_path, 0o644)
+                except Exception:
+                    pass
 
                 container_name = f"codesync-sb-{run_id[:8]}-{int(time.time() * 1000) % 1000000}"
 
@@ -231,16 +271,16 @@ class DockerSandboxExecutor:
 
         except DockerException as e:
             duration_ms = int((time.monotonic() - start_time) * 1000)
-            logger.exception("Docker execution error: %s", e)
+            logger.error("Docker execution failure: %s", e)
             return SandboxExecutionResult(
                 exit_code=1,
                 status="failed",
                 duration_ms=duration_ms,
-                output=f"Docker execution error: {str(e)}",
+                output=f"Docker error: {str(e)}",
             )
         except Exception as e:
             duration_ms = int((time.monotonic() - start_time) * 1000)
-            logger.exception("Unexpected execution error: %s", e)
+            logger.error("Execution failure: %s", e)
             return SandboxExecutionResult(
                 exit_code=1,
                 status="failed",
