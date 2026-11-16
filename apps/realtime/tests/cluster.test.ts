@@ -9,8 +9,19 @@ describe("Multi-Instance Realtime Clustering via Redis", () => {
   let server2: Hocuspocus;
   let redisPublisher: Redis;
 
-  const redisHost = "127.0.0.1";
-  const redisPort = 6379;
+  const getRedisConfig = () => {
+    try {
+      if (process.env.REDIS_URL) {
+        const u = new URL(process.env.REDIS_URL);
+        return { host: u.hostname, port: Number(u.port) || 6379 };
+      }
+    } catch {
+      // fallback
+    }
+    return { host: process.env.REDIS_HOST || "127.0.0.1", port: Number(process.env.REDIS_PORT || 6379) };
+  };
+
+  const { host: redisHost, port: redisPort } = getRedisConfig();
 
   beforeAll(async () => {
     redisPublisher = new Redis({ host: redisHost, port: redisPort });
