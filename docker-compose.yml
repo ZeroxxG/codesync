@@ -48,6 +48,12 @@ services:
       - "8000:8000"
     volumes:
       - ./apps/api:/app
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     profiles:
       - full
 
@@ -65,6 +71,12 @@ services:
     volumes:
       - ./apps/realtime:/app
       - /app/node_modules
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:1234/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     profiles:
       - full
 
@@ -82,6 +94,12 @@ services:
     volumes:
       - ./apps/realtime:/app
       - /app/node_modules
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:1234/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     profiles:
       - full
 
@@ -94,9 +112,36 @@ services:
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - api
-      - realtime-1
-      - realtime-2
+      api:
+        condition: service_healthy
+      realtime-1:
+        condition: service_healthy
+      realtime-2:
+        condition: service_healthy
+    profiles:
+      - full
+
+  sandbox-python:
+    build: ./docker/sandbox-python
+    image: codesync-sandbox-python:latest
+    restart: "no"
+    entrypoint: ["echo", "codesync-sandbox-python ready"]
+    profiles:
+      - full
+
+  sandbox-javascript:
+    build: ./docker/sandbox-javascript
+    image: codesync-sandbox-javascript:latest
+    restart: "no"
+    entrypoint: ["echo", "codesync-sandbox-javascript ready"]
+    profiles:
+      - full
+
+  sandbox-cpp:
+    build: ./docker/sandbox-cpp
+    image: codesync-sandbox-cpp:latest
+    restart: "no"
+    entrypoint: ["echo", "codesync-sandbox-cpp ready"]
     profiles:
       - full
 
@@ -109,6 +154,12 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      sandbox-python:
+        condition: service_completed_successfully
+      sandbox-javascript:
+        condition: service_completed_successfully
+      sandbox-cpp:
+        condition: service_completed_successfully
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./apps/runner:/app
@@ -120,9 +171,12 @@ services:
     restart: unless-stopped
     env_file: .env
     depends_on:
-      - api
-      - realtime-1
-      - realtime-2
+      api:
+        condition: service_healthy
+      realtime-1:
+        condition: service_healthy
+      realtime-2:
+        condition: service_healthy
     ports:
       - "5173:5173"
     volumes:

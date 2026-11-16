@@ -1,4 +1,23 @@
-.PHONY: dev dev-infra test lint lint-python lint-node help
+.PHONY: setup build-sandboxes dev dev-infra test lint lint-python lint-node help
+
+# ---------------------------------------------------------------------------
+# Setup & Initial Bootstrap
+# ---------------------------------------------------------------------------
+
+## Bootstrap local setup: creates .env from .env.example and builds sandbox images.
+setup:
+	@python -c "import shutil, os; shutil.copyfile('.env.example', '.env') if not os.path.exists('.env') else None"
+	@echo "Local .env verified."
+	docker build -t codesync-sandbox-python:latest docker/sandbox-python
+	docker build -t codesync-sandbox-javascript:latest docker/sandbox-javascript
+	docker build -t codesync-sandbox-cpp:latest docker/sandbox-cpp
+	@echo "Sandbox container images built successfully."
+
+## Build all three language sandbox runtime images.
+build-sandboxes:
+	docker build -t codesync-sandbox-python:latest docker/sandbox-python
+	docker build -t codesync-sandbox-javascript:latest docker/sandbox-javascript
+	docker build -t codesync-sandbox-cpp:latest docker/sandbox-cpp
 
 # ---------------------------------------------------------------------------
 # Local development
