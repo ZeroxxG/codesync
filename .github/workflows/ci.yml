@@ -116,3 +116,38 @@ jobs:
       - name: Web Frontend Build
         run: |
           pnpm --prefix apps/web build
+
+  clean-clone-smoke:
+    name: Clean Clone & Smoke Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Doctor Preflight Diagnostics
+        run: |
+          python3 scripts/doctor.py
+
+      - name: Bootstrap Environment & Start Full Stack
+        run: |
+          cp .env.example .env
+          docker compose --profile full up --build -d
+
+      - name: Wait for Services to become Healthy
+        run: |
+          timeout 120s bash -c 'until [ $(docker compose ps -q | wc -l) -gt 0 ] && docker compose ps | grep -q "(healthy)"; do echo "Waiting for healthy stack..."; sleep 3; done'
+          docker compose ps
+
+      - name: Run Full Stack Smoke Test
+        run: |
+          python3 scripts/smoke_test.py
+
+      - name: Teardown Stack
+        if: always()
+        run: |
+          docker compose --profile full down -v --remove-orphans

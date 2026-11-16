@@ -259,34 +259,37 @@ GitHub Actions runs on every push and pull request to `main` (`.github/workflows
 ### Prerequisites
 - [Docker Engine](https://docs.docker.com/engine/install/) & [Docker Compose](https://docs.docker.com/compose/)
 - [Node.js 20+](https://nodejs.org/) & [pnpm 9+](https://pnpm.io/)
-- [Python 3.12+](https://www.python.org/) (for local development outside containers)
+- [Python 3.12+](https://www.python.org/)
 
-### 1. Clone & Configure
+### 1. Clone & Preflight Check
 ```bash
 git clone https://github.com/ZeroxxG/codesync.git
 cd codesync
-cp .env.example .env
+
+# Run diagnostic tool to check Docker, tool versions, and port availability
+make doctor
 ```
 
-### 2. Build Sandbox Runtime Images
-The execution runner requires pre-built minimal Alpine images for each supported language:
+### 2. Launch Full Stack (Zero Configuration)
+Copy the default environment and boot all services (PostgreSQL, Redis, Django API, Realtime cluster, Runner, Nginx, and Web):
 ```bash
-docker build -t codesync-sandbox-python:latest docker/sandbox-python
-docker build -t codesync-sandbox-javascript:latest docker/sandbox-javascript
-docker build -t codesync-sandbox-cpp:latest docker/sandbox-cpp
+# Bootstrap .env and start all services
+cp .env.example .env     # or run: make setup
+make dev                 # or: docker compose --profile full up --build
 ```
+> [!TIP]
+> `make dev` automatically builds the language sandbox container images (`codesync-sandbox-python`, `codesync-sandbox-javascript`, `codesync-sandbox-cpp`) and coordinates service health checks on boot.
 
-### 3. Launch Services
-
-#### Option A: Full Stack via Docker Compose
-Starts PostgreSQL, Redis, Django API, two Hocuspocus realtime nodes, Celery runner, Nginx reverse proxy, and Web frontend:
-```bash
-docker compose --profile full up --build
-```
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-#### Option B: Hybrid Development Mode (Fast Hot-Reload)
-Run backing databases in Docker and services natively:
+### 3. Verify With End-to-End Smoke Test
+Run the automated smoke test suite to verify health endpoints, guest room creation, dual WebSocket peer synchronization, and sandboxed execution:
+```bash
+make smoke
+```
+
+### Alternative: Hybrid Development Mode (Fast Hot-Reload)
+For active local development with instant hot reload:
 ```bash
 # 1. Start PostgreSQL and Redis
 make dev-infra
@@ -309,7 +312,7 @@ pnpm install
 pnpm dev
 ```
 
-### 4. Running the Tests
+### Running Test Suites
 ```bash
 # Run Django API test suite
 pytest apps/api/rooms/tests -v
@@ -323,6 +326,18 @@ pnpm --prefix apps/realtime test
 # Validate Web frontend TypeScript types and build
 pnpm --prefix apps/web build
 ```
+
+---
+
+## Troubleshooting
+
+| Problem | Root Cause | Solution |
+|---|---|---|
+| **Port Conflict (`Bind for 0.0.0.0:5432 failed`)** | Another PostgreSQL, Redis, or Web service is already bound to port 80, 1234, 5173, 5432, 6379, or 8000. | Run `make doctor` to identify the blocked port. Run `docker ps` to see conflicting containers, or stop local background services (`sudo systemctl stop postgresql`). |
+| **Docker Daemon Not Running** | The Docker service or Docker Desktop is stopped. | Start Docker Desktop (macOS/Windows) or run `sudo systemctl start docker` (Linux). Verify with `docker info`. |
+| **Permission Denied (`/var/run/docker.sock`)** | Current user lacks permissions to interact with the Docker daemon. | Add your user to the Docker group: `sudo usermod -aG docker $USER && newgrp docker`. On Windows WSL2, ensure Docker Desktop WSL integration is enabled. |
+| **Slow First Build** | The initial build downloads base Alpine images and compiles Node/Python packages. | Normal on initial clone (~2-3 minutes depending on network). Subsequent starts use Docker's cached layer images and take under 3 seconds. |
+| **pnpm Version Mismatch** | Using unpinned pnpm 10+ which restricts lifecycle scripts by default. | CodeSync Dockerfiles pin `pnpm@9.15.9`. For host development, install `npm install -g pnpm@9.15.9`. |
 
 ---
 
