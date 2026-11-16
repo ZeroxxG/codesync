@@ -71,6 +71,7 @@ services:
     volumes:
       - ./apps/realtime:/app
       - /app/node_modules
+      - /app/dist
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:1234/health || exit 1"]
       interval: 5s
@@ -94,6 +95,7 @@ services:
     volumes:
       - ./apps/realtime:/app
       - /app/node_modules
+      - /app/dist
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:1234/health || exit 1"]
       interval: 5s
