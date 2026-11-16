@@ -155,109 +155,109 @@ class DockerSandboxExecutor:
 
             container.start()
 
-                # Stream logs in background thread
-                def _stream_reader():
-                    nonlocal total_bytes, truncated
-                    try:
-                        for chunk in container.logs(stream=True, follow=True, stdout=True, stderr=True):
-                            if stop_stream.is_set():
-                                break
-                            text = chunk.decode("utf-8", errors="replace")
-                            if total_bytes + len(text) > cfg.MAX_OUTPUT_BYTES:
-                                allowed = max(0, cfg.MAX_OUTPUT_BYTES - total_bytes)
-                                if allowed > 0:
-                                    trimmed = text[:allowed]
-                                    collected_chunks.append(trimmed)
-                                    total_bytes += len(trimmed)
-                                    if on_output_chunk:
-                                        on_output_chunk(trimmed)
-                                truncated = True
-                                break
-                            else:
-                                collected_chunks.append(text)
-                                total_bytes += len(text)
+            # Stream logs in background thread
+            def _stream_reader():
+                nonlocal total_bytes, truncated
+                try:
+                    for chunk in container.logs(stream=True, follow=True, stdout=True, stderr=True):
+                        if stop_stream.is_set():
+                            break
+                        text = chunk.decode("utf-8", errors="replace")
+                        if total_bytes + len(text) > cfg.MAX_OUTPUT_BYTES:
+                            allowed = max(0, cfg.MAX_OUTPUT_BYTES - total_bytes)
+                            if allowed > 0:
+                                trimmed = text[:allowed]
+                                collected_chunks.append(trimmed)
+                                total_bytes += len(trimmed)
                                 if on_output_chunk:
-                                    on_output_chunk(text)
-                    except Exception as ex:
-                        logger.debug("Log streaming finished or interrupted: %s", ex)
-
-                stream_thread = threading.Thread(target=_stream_reader, daemon=True)
-                stream_thread.start()
-
-                # Wait for container completion or timeout
-                timed_out = False
-                try:
-                    container.wait(timeout=cfg.EXECUTION_TIMEOUT_SECONDS)
-                except Exception:
-                    timed_out = True
-                    try:
-                        container.kill()
-                    except Exception:
-                        pass
-
-                stop_stream.set()
-                stream_thread.join(timeout=1.0)
-
-                # Ensure all logs are captured even if container exited before stream attached
-                try:
-                    full_logs = container.logs(stdout=True, stderr=True).decode("utf-8", errors="replace")
-                    if len(full_logs) > cfg.MAX_OUTPUT_BYTES:
-                        truncated = True
-
-                    streamed_text = "".join(collected_chunks)
-                    if len(full_logs) > len(streamed_text):
-                        if not streamed_text:
-                            chunk_to_add = full_logs[:cfg.MAX_OUTPUT_BYTES]
-                            collected_chunks.append(chunk_to_add)
-                            total_bytes += len(chunk_to_add)
+                                    on_output_chunk(trimmed)
+                            truncated = True
+                            break
+                        else:
+                            collected_chunks.append(text)
+                            total_bytes += len(text)
                             if on_output_chunk:
-                                on_output_chunk(chunk_to_add)
-                        elif full_logs.startswith(streamed_text):
-                            rem = full_logs[len(streamed_text):cfg.MAX_OUTPUT_BYTES]
-                            if rem:
-                                collected_chunks.append(rem)
-                                total_bytes += len(rem)
-                                if on_output_chunk:
-                                    on_output_chunk(rem)
+                                on_output_chunk(text)
+                except Exception as ex:
+                    logger.debug("Log streaming finished or interrupted: %s", ex)
+
+            stream_thread = threading.Thread(target=_stream_reader, daemon=True)
+            stream_thread.start()
+
+            # Wait for container completion or timeout
+            timed_out = False
+            try:
+                container.wait(timeout=cfg.EXECUTION_TIMEOUT_SECONDS)
+            except Exception:
+                timed_out = True
+                try:
+                    container.kill()
                 except Exception:
                     pass
 
-                duration_ms = int((time.monotonic() - start_time) * 1000)
+            stop_stream.set()
+            stream_thread.join(timeout=1.0)
 
-                # Inspect container final state
-                try:
-                    container.reload()
-                    state = container.attrs.get("State", {})
-                    exit_code = state.get("ExitCode", 0)
-                    is_oom = state.get("OOMKilled", False)
-                except Exception:
-                    state = {}
-                    exit_code = -1
-                    is_oom = False
+            # Ensure all logs are captured even if container exited before stream attached
+            try:
+                full_logs = container.logs(stdout=True, stderr=True).decode("utf-8", errors="replace")
+                if len(full_logs) > cfg.MAX_OUTPUT_BYTES:
+                    truncated = True
 
-                if is_oom:
-                    status = "oom"
-                    exit_code = 137
-                    collected_chunks.append("\n[Process terminated: Out of Memory limit reached (128MB)]\n")
-                elif timed_out:
-                    status = "timeout"
-                    exit_code = 124
-                    collected_chunks.append(f"\n[Process terminated: Wall-clock timeout exceeded ({cfg.EXECUTION_TIMEOUT_SECONDS}s)]\n")
-                elif exit_code == 0:
-                    status = "completed"
-                else:
-                    status = "failed"
+                streamed_text = "".join(collected_chunks)
+                if len(full_logs) > len(streamed_text):
+                    if not streamed_text:
+                        chunk_to_add = full_logs[:cfg.MAX_OUTPUT_BYTES]
+                        collected_chunks.append(chunk_to_add)
+                        total_bytes += len(chunk_to_add)
+                        if on_output_chunk:
+                            on_output_chunk(chunk_to_add)
+                    elif full_logs.startswith(streamed_text):
+                        rem = full_logs[len(streamed_text):cfg.MAX_OUTPUT_BYTES]
+                        if rem:
+                            collected_chunks.append(rem)
+                            total_bytes += len(rem)
+                            if on_output_chunk:
+                                on_output_chunk(rem)
+            except Exception:
+                pass
 
-                if truncated:
-                    collected_chunks.append("\n[Output truncated at 64KB]\n")
+            duration_ms = int((time.monotonic() - start_time) * 1000)
 
-                final_output = "".join(collected_chunks)
-                return SandboxExecutionResult(
-                    exit_code=exit_code,
-                    status=status,
-                    duration_ms=duration_ms,
-                    output=final_output,
-                )
+            # Inspect container final state
+            try:
+                container.reload()
+                state = container.attrs.get("State", {})
+                exit_code = state.get("ExitCode", 0)
+                is_oom = state.get("OOMKilled", False)
+            except Exception:
+                state = {}
+                exit_code = -1
+                is_oom = False
+
+            if is_oom:
+                status = "oom"
+                exit_code = 137
+                collected_chunks.append("\n[Process terminated: Out of Memory limit reached (128MB)]\n")
+            elif timed_out:
+                status = "timeout"
+                exit_code = 124
+                collected_chunks.append(f"\n[Process terminated: Wall-clock timeout exceeded ({cfg.EXECUTION_TIMEOUT_SECONDS}s)]\n")
+            elif exit_code == 0:
+                status = "completed"
+            else:
+                status = "failed"
+
+            if truncated:
+                collected_chunks.append("\n[Output truncated at 64KB]\n")
+
+            final_output = "".join(collected_chunks)
+            return SandboxExecutionResult(
+                exit_code=exit_code,
+                status=status,
+                duration_ms=duration_ms,
+                output=final_output,
+            )
 
         except DockerException as e:
             duration_ms = int((time.monotonic() - start_time) * 1000)
