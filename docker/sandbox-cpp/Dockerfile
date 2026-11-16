@@ -5,7 +5,7 @@ RUN apk add --no-cache g++ libstdc++ && \
     adduser -u 10001 -S sandbox -G sandbox
 
 COPY run_cpp.sh /usr/local/bin/run_cpp.sh
-RUN chmod +x /usr/local/bin/run_cpp.sh
+RUN sed -i 's/\r$//' /usr/local/bin/run_cpp.sh && chmod +x /usr/local/bin/run_cpp.sh
 
 WORKDIR /tmp
 

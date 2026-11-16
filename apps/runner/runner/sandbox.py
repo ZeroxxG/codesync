@@ -1,6 +1,6 @@
+import base64
 import logging
 import os
-import tempfile
 import threading
 import time
 from typing import Callable, Optional
@@ -102,22 +102,24 @@ class DockerSandboxExecutor:
             )
         except Exception as e:
             logger.warning("Could not pre-verify image %s: %s", image, e)
+        b64_code = base64.b64encode(code.encode("utf-8")).decode("ascii")
+
         if lang == "python":
             filename = "code.py"
-            command = ["python", "-u", "/tmp/code.py"]
-            tmpfs_opts = {"/tmp": "size=16m,noexec,nosuid,nodev"}
+            command = ["sh", "-c", 'echo "$CODE_B64" | base64 -d > /tmp/code.py && exec python -u /tmp/code.py']
+            tmpfs_opts = {"/tmp": "exec,size=16m,nosuid,nodev"}
         elif lang == "javascript":
             filename = "code.js"
-            command = ["node", "/tmp/code.js"]
-            tmpfs_opts = {"/tmp": "size=16m,noexec,nosuid,nodev"}
+            command = ["sh", "-c", 'echo "$CODE_B64" | base64 -d > /tmp/code.js && exec node /tmp/code.js']
+            tmpfs_opts = {"/tmp": "exec,size=16m,nosuid,nodev"}
         elif lang == "cpp":
             filename = "code.cpp"
-            command = ["/usr/local/bin/run_cpp.sh"]
+            command = ["sh", "-c", 'echo "$CODE_B64" | base64 -d > /tmp/code.cpp && exec /usr/local/bin/run_cpp.sh']
             tmpfs_opts = {"/tmp": "exec,size=32m,nosuid,nodev"}
         else:
             filename = "code.txt"
-            command = ["cat", "/tmp/code.txt"]
-            tmpfs_opts = {"/tmp": "size=16m,noexec,nosuid,nodev"}
+            command = ["sh", "-c", 'echo "$CODE_B64" | base64 -d > /tmp/code.txt && exec cat /tmp/code.txt']
+            tmpfs_opts = {"/tmp": "exec,size=16m,nosuid,nodev"}
 
         container = None
         collected_chunks = []
@@ -127,43 +129,31 @@ class DockerSandboxExecutor:
         start_time = time.monotonic()
 
         try:
-            with tempfile.TemporaryDirectory(prefix=f"codesync-run-{run_id[:8]}-") as td:
-                host_code_path = os.path.join(td, filename)
-                with open(host_code_path, "w", encoding="utf-8") as f:
-                    f.write(code)
+            container_name = f"codesync-sb-{run_id[:8]}-{int(time.time() * 1000) % 1000000}"
 
-                # Ensure read permissions for non-root container user 10001:10001
-                try:
-                    os.chmod(td, 0o755)
-                    os.chmod(host_code_path, 0o644)
-                except Exception:
-                    pass
+            container = self.client.containers.create(
+                image=image,
+                name=container_name,
+                command=command,
+                environment={"CODE_B64": b64_code},
+                network_mode="none",
+                read_only=True,
+                tmpfs=tmpfs_opts,
+                user="10001:10001",
+                cap_drop=["ALL"],
+                security_opt=["no-new-privileges:true"],
+                mem_limit=cfg.MEMORY_LIMIT,
+                memswap_limit=cfg.MEMSWAP_LIMIT,
+                nano_cpus=cfg.NANO_CPUS,
+                pids_limit=cfg.PIDS_LIMIT,
+                labels={
+                    "codesync": "sandbox",
+                    "run_id": run_id,
+                    "created_at": str(time.time()),
+                },
+            )
 
-                container_name = f"codesync-sb-{run_id[:8]}-{int(time.time() * 1000) % 1000000}"
-
-                container = self.client.containers.create(
-                    image=image,
-                    name=container_name,
-                    command=command,
-                    volumes={host_code_path: {"bind": f"/tmp/{filename}", "mode": "ro"}},
-                    network_mode="none",
-                    read_only=True,
-                    tmpfs=tmpfs_opts,
-                    user="10001:10001",
-                    cap_drop=["ALL"],
-                    security_opt=["no-new-privileges:true"],
-                    mem_limit=cfg.MEMORY_LIMIT,
-                    memswap_limit=cfg.MEMSWAP_LIMIT,
-                    nano_cpus=cfg.NANO_CPUS,
-                    pids_limit=cfg.PIDS_LIMIT,
-                    labels={
-                        "codesync": "sandbox",
-                        "run_id": run_id,
-                        "created_at": str(time.time()),
-                    },
-                )
-
-                container.start()
+            container.start()
 
                 # Stream logs in background thread
                 def _stream_reader():

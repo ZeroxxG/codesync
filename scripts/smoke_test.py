@@ -150,34 +150,33 @@ def test_realtime_convergence(slug: str) -> bool:
         log_pass("Two WebSocket clients connected and converged Yjs edits seamlessly")
         return True
 
-    # Attempt 2: If local node lacks modules, run inside realtime container
-    log_info("Local node modules missing; attempting inside realtime-1 container...")
+    # Attempt 2: If local node lacks modules, run inside web container
+    log_info("Local node modules missing; attempting inside web container...")
+    node_inline = (
+        "import { HocuspocusProvider } from '@hocuspocus/provider';"
+        f"const p1 = new HocuspocusProvider({{ url: 'ws://realtime-1:1234', name: '{slug}', token: 'anonymous', parameters: {{ user: 'SmokeUser1' }} }});"
+        f"const p2 = new HocuspocusProvider({{ url: 'ws://realtime-2:1234', name: '{slug}', token: 'anonymous', parameters: {{ user: 'SmokeUser2' }} }});"
+        "p1.on('synced', () => { p1.document.getText('monaco').insert(0, 'SMOKE_OK'); });"
+        "p2.document.getText('monaco').observe(() => {"
+        "  if (p2.document.getText('monaco').toString() === 'SMOKE_OK') {"
+        "    p1.destroy(); p2.destroy();"
+        "    process.exit(0);"
+        "  }"
+        "});"
+        "setTimeout(() => { console.error('Timed out waiting for convergence'); process.exit(1); }, 10000);"
+    )
     res_docker = subprocess.run(
         [
             "docker",
             "compose",
             "exec",
             "-T",
-            "realtime-1",
+            "web",
             "node",
+            "--experimental-websocket",
+            "--input-type=module",
             "-e",
-            f"""
-            const hp = require('@hocuspocus/provider');
-            const Y = require('yjs');
-            const ws = require('ws');
-            const p1 = new hp.HocuspocusProvider({{ url: 'ws://127.0.0.1:1234', name: '{slug}', token: 'anonymous', WebSocketPolyfill: ws }});
-            const p2 = new hp.HocuspocusProvider({{ url: 'ws://127.0.0.1:1234', name: '{slug}', token: 'anonymous', WebSocketPolyfill: ws }});
-            p1.on('synced', () => {{
-              p1.document.getText('monaco').insert(0, 'SMOKE_OK');
-            }});
-            p2.document.getText('monaco').observe(() => {{
-              if (p2.document.getText('monaco').toString() === 'SMOKE_OK') {{
-                p1.destroy(); p2.destroy();
-                process.exit(0);
-              }}
-            }});
-            setTimeout(() => {{ process.exit(1); }}, 6000);
-            """,
+            node_inline,
         ],
         capture_output=True,
         text=True,

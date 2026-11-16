@@ -1,0 +1,5 @@
+# Enforce LF endings on all platforms for shell scripts and Docker
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+Dockerfile* text eol=lf
