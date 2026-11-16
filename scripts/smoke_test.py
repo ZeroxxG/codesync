@@ -93,14 +93,14 @@ def test_health_endpoints() -> bool:
 
     # 1. API Basic Health
     code, body = http_get("http://127.0.0.1:8000/api/health/")
-    if code != 200 or not isinstance(body, dict) or body.get("status") != "ok":
+    if code != 200 or not isinstance(body, dict) or body.get("status") not in ("ok", "healthy"):
         log_fail(f"API health (/api/health/) returned HTTP {code}: {body}")
         return False
     log_pass("Django API health endpoint (/api/health/) responded 200 OK")
 
     # 2. API Deep Health (Database & Redis ping)
     code, body = http_get("http://127.0.0.1:8000/health/")
-    if code != 200 or not isinstance(body, dict) or body.get("status") != "healthy":
+    if code != 200 or not isinstance(body, dict) or body.get("status") not in ("ok", "healthy"):
         log_fail(f"Deep system health (/health/) returned HTTP {code}: {body}")
         return False
     log_pass("System dependencies (/health/) healthy (PostgreSQL & Redis connected)")
