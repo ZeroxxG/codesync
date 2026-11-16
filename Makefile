@@ -1,4 +1,16 @@
-.PHONY: setup build-sandboxes dev dev-infra test lint lint-python lint-node help
+.PHONY: doctor smoke setup build-sandboxes dev dev-infra test lint lint-python lint-node help
+
+# ---------------------------------------------------------------------------
+# Diagnostics & Health Preflight
+# ---------------------------------------------------------------------------
+
+## Run preflight diagnostics: checks Docker daemon, tool versions, ports, and configuration.
+doctor:
+	@python scripts/doctor.py
+
+## Run end-to-end stack smoke test: validates health, room creation, CRDT convergence, and sandboxed run.
+smoke:
+	@python scripts/smoke_test.py
 
 # ---------------------------------------------------------------------------
 # Setup & Initial Bootstrap
