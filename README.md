@@ -10,7 +10,7 @@ A real-time collaborative code editor with conflict-free Yjs CRDT synchronizatio
 ![Docker](https://img.shields.io/badge/Docker-Sandboxed-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-[Live Demo](https://codesyncapp.duckdns.org) · [Demo Video](<DEMO VIDEO URL>) · [Architecture](docs/DESIGN.md) · [Security](docs/SECURITY.md) · [Benchmarks](docs/BENCHMARKS.md) · [Deployment](docs/DEPLOYMENT.md)
+[Live Demo](https://codesync-mauve-kappa.vercel.app) · [Demo Video](<DEMO VIDEO URL>) · [Architecture](docs/DESIGN.md) · [Security](docs/SECURITY.md) · [Benchmarks](docs/BENCHMARKS.md) · [Deployment](docs/DEPLOYMENT.md)
 
 ---
 
@@ -20,7 +20,7 @@ A real-time collaborative code editor with conflict-free Yjs CRDT synchronizatio
 
 *Two browser sessions editing Python code with live remote cursors, followed by sandboxed execution streaming stdout/stderr back into the terminal drawer.*
 
-> **Live Demo**: [https://codesyncapp.duckdns.org](https://codesyncapp.duckdns.org)  
+> **Live Demo**: [https://codesync-mauve-kappa.vercel.app](https://codesync-mauve-kappa.vercel.app)  
 > **Demo Access**: Instant anonymous room creation or guest join — no login required. Optional user registration and login available on the home page.
 
 ---
@@ -417,7 +417,7 @@ codesync/
 ### Author
 - **GitHub**: [<GITHUB URL>](<GITHUB URL>)
 - **LinkedIn**: [<LINKEDIN URL>](<LINKEDIN URL>)
-- **Live Demo**: [https://codesyncapp.duckdns.org](https://codesyncapp.duckdns.org)
+- **Live Demo**: [https://codesync-mauve-kappa.vercel.app](https://codesync-mauve-kappa.vercel.app)
 
 *Open to engineering discussions, feedback, and software engineering opportunities.*
 
