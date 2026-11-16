@@ -209,3 +209,117 @@ CodeSync's realtime synchronization and API throughput were empirically measured
 
 > [!NOTE]
 > Median cross-instance CRDT sync latency is **29.03 ms**, showing that Redis pub/sub relay introduces negligible overhead. Read the full methodology, load scripts, and raw data in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+
+---
+
+## Engineering Highlights
+
+Detailed rationale behind the core technical decisions in CodeSync (drawn from [docs/DESIGN.md](docs/DESIGN.md)):
+
+### 1. CRDTs (Yjs) over Operational Transformation (OT)
+OT architectures (e.g. Google Docs) rely on a central coordinator to establish a total ordering of operations and transform incoming concurrent mutations against in-flight buffers. If the coordinator drops packets or partitions, client state diverges. CodeSync adopts Yjs CRDTs because state vectors guarantee mathematical convergence on all peers regardless of network arrival order (`Y.applyUpdate`). Furthermore, Yjs merges sequential character insertions into run-length-encoded item structs, achieving near-string memory overhead (~1-2 bytes per char) and sub-millisecond local updates.
+
+### 2. Dedicated Node.js Realtime Service vs Django Channels
+Collaborative typing produces a high frequency of tiny WebSocket frames (keystrokes and cursor coordinates up to 60 Hz). Node.js's asynchronous non-blocking event loop handles thousands of concurrent binary WebSocket connections with minimal per-socket memory (~10–20 KB) and native `ArrayBuffer` performance. Keeping the realtime tier completely stateless and separated from Django ensures that database queries, migrations, or heavy API transactions never block the editor's typing loop.
+
+### 3. Horizontal Clustering via Redis Pub/Sub Backplane
+Rather than pinning rooms to specific server processes or relying on complex distributed consensus, CodeSync uses `@hocuspocus/extension-redis` to link independent Hocuspocus nodes. When an update is applied on Node A, it is published to `codesync:yjs:<roomSlug>` over Redis; Node B receives the message and immediately propagates it to its local clients. This architecture demonstrated a median cross-instance propagation latency of 29.03 ms across independent nodes in load testing.
+
+### 4. Defense-in-Depth Server-Side Viewer Protection
+Client-side UI disabling (`readOnly: true` in Monaco) is cosmetic and easily bypassed by an attacker transmitting raw Yjs WebSocket update frames. CodeSync enforces viewer protection at two server-side layers: first during the connection handshake (`readOnly = true` attached to socket context), and second via binary message inspection (`beforeHandleMessage`) that discards incoming Yjs sync/update frames from viewers before they can touch the server's in-memory `Y.Doc`.
+
+### 5. Execution Concurrency Mutex and Sandbox Reaper
+To prevent resource exhaustion from concurrent execution requests within the same room, the Django API acquires a Redis distributed lock (`room:<slug>:running_lock`, 15-second TTL) before dispatching a run to Celery, rejecting overlapping requests with `409 Conflict`. In addition, an independent reaper daemon (`apps/runner/runner/reaper.py`) continuously queries the host Docker daemon for containers with the `codesync: sandbox` label older than 30 seconds, automatically destroying any orphaned containers caused by worker crashes.
+
+---
+
+## Testing & CI
+
+CodeSync maintains a strict automated test suite verifying correctness, concurrency, and adversarial containment across every service layer.
+
+### Automated Test Suite (51 Tests Total)
+
+| Service Layer | Test Framework | Test Scope | Result |
+|---|---|---|---|
+| **API (`apps/api`)** | pytest + pytest-django | Room creation, membership RBAC, SimpleJWT auth, invite link tokens, snapshot endpoints, run serialization, and rate limits. | **31 passed** |
+| **Realtime (`apps/realtime`)** | Vitest | Yjs document convergence, two-layer viewer edit rejection, snapshot debouncing, health probes, and Redis cluster pub/sub sync. | **9 passed** |
+| **Runner (`apps/runner`)** | pytest | Celery task invocation, output chunk streaming, reaper daemon sweeps, and the **8 adversarial security exploits**. | **11 passed** |
+| **Web (`apps/web`)** | TypeScript (`tsc`) + Vite | Strict TypeScript typechecking (`--noEmit`) and production static bundle compilation. | **Verified** |
+
+### Continuous Integration Pipeline
+
+GitHub Actions runs on every push and pull request to `main` (`.github/workflows/ci.yml`):
+- **`python-test` Job**: Boots ephemeral `postgres:16-alpine` and `redis:7-alpine` service containers, executes database migrations, and runs all 42 pytest tests across the API and execution runner.
+- **`node-test` Job**: Boots `redis:7-alpine`, executes pnpm typechecks and test suites for the realtime collaboration engine, and validates the frontend production build.
+
+---
+
+## Quick Start
+
+### Prerequisites
+- [Docker Engine](https://docs.docker.com/engine/install/) & [Docker Compose](https://docs.docker.com/compose/)
+- [Node.js 20+](https://nodejs.org/) & [pnpm 9+](https://pnpm.io/)
+- [Python 3.12+](https://www.python.org/) (for local development outside containers)
+
+### 1. Clone & Configure
+```bash
+git clone https://github.com/ZeroxxG/codesync.git
+cd codesync
+cp .env.example .env
+```
+
+### 2. Build Sandbox Runtime Images
+The execution runner requires pre-built minimal Alpine images for each supported language:
+```bash
+docker build -t codesync-sandbox-python:latest docker/sandbox-python
+docker build -t codesync-sandbox-javascript:latest docker/sandbox-javascript
+docker build -t codesync-sandbox-cpp:latest docker/sandbox-cpp
+```
+
+### 3. Launch Services
+
+#### Option A: Full Stack via Docker Compose
+Starts PostgreSQL, Redis, Django API, two Hocuspocus realtime nodes, Celery runner, Nginx reverse proxy, and Web frontend:
+```bash
+docker compose --profile full up --build
+```
+Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+#### Option B: Hybrid Development Mode (Fast Hot-Reload)
+Run backing databases in Docker and services natively:
+```bash
+# 1. Start PostgreSQL and Redis
+make dev-infra
+
+# 2. Run backend migrations and start API (terminal 1)
+cd apps/api
+python -m venv .venv && source .venv/bin/activate  # on Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver 8000
+
+# 3. Start realtime WebSocket cluster (terminal 2)
+cd apps/realtime
+pnpm install
+pnpm dev
+
+# 4. Start frontend Vite development server (terminal 3)
+cd apps/web
+pnpm install
+pnpm dev
+```
+
+### 4. Running the Tests
+```bash
+# Run Django API test suite
+pytest apps/api/rooms/tests -v
+
+# Run Celery runner & adversarial container security suite
+pytest apps/runner/tests -v
+
+# Run Realtime collaboration test suite
+pnpm --prefix apps/realtime test
+
+# Validate Web frontend TypeScript types and build
+pnpm --prefix apps/web build
+```
