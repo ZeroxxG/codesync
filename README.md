@@ -10,7 +10,7 @@ A real-time collaborative code editor with conflict-free Yjs CRDT synchronizatio
 ![Docker](https://img.shields.io/badge/Docker-Sandboxed-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-[Live Demo](https://codesyncapp.duckdns.org) · [Architecture](docs/DESIGN.md) · [Security](docs/SECURITY.md) · [Benchmarks](docs/BENCHMARKS.md) · [Deployment](docs/DEPLOYMENT.md)
+[Live Demo](https://codesyncapp.duckdns.org) · [Demo Video](<DEMO VIDEO URL>) · [Architecture](docs/DESIGN.md) · [Security](docs/SECURITY.md) · [Benchmarks](docs/BENCHMARKS.md) · [Deployment](docs/DEPLOYMENT.md)
 
 ---
 
@@ -323,3 +323,88 @@ pnpm --prefix apps/realtime test
 # Validate Web frontend TypeScript types and build
 pnpm --prefix apps/web build
 ```
+
+---
+
+## Deployment
+
+CodeSync runs in production across a hybrid cloud topology combining **Vercel** and **Microsoft Azure**:
+
+- **Edge Frontend**: Hosted globally on Vercel's Edge Network, serving the React 18 SPA and proxying `/api/*` REST calls to the Azure backend.
+- **Compute & Execution Tier**: Hosted on an Azure Linux VM (`Standard_B2s`, Ubuntu 24.04 LTS) running Docker Compose orchestration for Nginx, Gunicorn/Django API, two clustered Hocuspocus realtime instances, and the Celery execution runner with host Docker daemon access.
+- **Persistence & Gateway**: Backed by Azure Database for PostgreSQL Flexible Server, Redis 7 message bus, and an Nginx reverse proxy terminating Let's Encrypt SSL certificates under domain `https://codesyncapp.duckdns.org`.
+
+For step-by-step Azure provisioning scripts, environment configuration, systemd services, and production deployment checklists, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+---
+
+## Project Structure
+
+<details>
+<summary><strong>Click to expand full repository structure</strong></summary>
+
+```
+codesync/
+├── .github/
+│   └── workflows/          # GitHub Actions CI matrix (API, Runner, Realtime, Web)
+├── apps/
+│   ├── api/                # Django REST API, SimpleJWT auth, room models, Celery dispatcher
+│   ├── realtime/           # Node.js Hocuspocus WebSocket server + Yjs engine + Redis extension
+│   ├── runner/             # Celery execution worker + Docker SDK sandbox + Reaper daemon
+│   └── web/                # React 18 SPA, Monaco Editor, Tailwind CSS, Yjs awareness
+├── benchmarks/             # Load test scripts for Yjs cross-instance propagation & API throughput
+├── docker/
+│   ├── nginx/              # Nginx gateway reverse proxy and load balancing configuration
+│   ├── sandbox-cpp/        # Minimal Alpine Dockerfile + runner script for C++ GCC 13
+│   ├── sandbox-javascript/ # Minimal Alpine Dockerfile for Node.js 20 execution
+│   └── sandbox-python/     # Minimal Alpine Dockerfile for Python 3.12 execution
+├── docs/                   # Architectural specs, security threat model, benchmarks, runbooks
+│   └── assets/             # Demo media, diagrams, and visual walk-throughs
+├── docker-compose.yml      # Local multi-service orchestration (Postgres, Redis, API, Realtime)
+├── docker-compose.prod.yml # Production VM deployment configuration
+├── Makefile                # Developer task shortcuts (dev-infra, dev, test, lint)
+├── LICENSE                 # MIT License specification
+└── vercel.json             # Vercel deployment rewrites and edge proxy routing
+```
+
+</details>
+
+---
+
+## What I Learned & What I'd Do Next
+
+### Engineering Lessons & Trade-Offs
+
+1. **CRDT History vs Ephemeral Awareness Separation**:
+   Monaco cursor events fire up to 60+ times per second during mouse drags. In early testing, routing cursor position updates into the document CRDT structure caused rapid tombstone growth and bloated snapshot sizes. Decoupling cursor presence into an ephemeral Yjs awareness protocol with 30-second TTL heartbeats eliminated document memory bloat while maintaining responsive cursor tracking.
+
+2. **Monaco Theme Rebinding vs WebSocket Reconnection**:
+   Switching between dark and light themes dynamically in Monaco initially triggered full editor component remounts, which severed active `y-monaco` bindings and caused brief WebSocket dropouts. Refactoring theme management to mutate Monaco's global theme registry in place preserved both editor model state and active socket connections without visual stutter.
+
+3. **Defense-in-Depth Against Malicious Payloads**:
+   Client-side permission toggles (`readOnly: true` in Monaco) are purely visual and offer no security against forged WebSocket packets. True multi-tenant safety required dual-layer server verification: connection context rejection during authentication, coupled with deep binary frame inspection that discards unauthorized Yjs update frames before they reach the server's in-memory `Y.Doc`.
+
+### What I'd Do Next
+
+1. **Hypervisor-Level MicroVM Isolation**:
+   Upgrade the execution sandbox from Docker cgroups to user-space kernel virtualization (**gVisor `runsc`**) or lightweight hardware-isolated microVMs (**AWS Firecracker**). This eliminates shared Linux kernel attack vectors and ensures multi-tenant security against kernel zero-day privilege escalations.
+
+2. **Distributed Observability & OpenTelemetry**:
+   Implement end-to-end distributed tracing across Django API, Hocuspocus WebSocket nodes, and Celery runner tasks using OpenTelemetry and Prometheus/Grafana to profile live keystroke-to-screen propagation and execution queue times under production loads.
+
+3. **Milestone Version History & Branching**:
+   Leverage Yjs state vectors to introduce document revision snapshots with git-like side-by-side diffing and instant one-click rollback directly inside the Monaco editor.
+
+---
+
+## Author & License
+
+### Author
+- **GitHub**: [<GITHUB URL>](<GITHUB URL>)
+- **LinkedIn**: [<LINKEDIN URL>](<LINKEDIN URL>)
+- **Live Demo**: [https://codesyncapp.duckdns.org](https://codesyncapp.duckdns.org)
+
+*Open to engineering discussions, feedback, and software engineering opportunities.*
+
+### License
+This project is open-source and licensed under the [MIT License](LICENSE).
