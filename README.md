@@ -140,8 +140,8 @@ flowchart TD
 | | Alpine Linux | 3.20 | Minimal attack surface and sub-100MB base images for Python, JS, and C++. |
 | **Infrastructure** | Nginx | 1.24 | Edge SSL termination, `ip_hash` WebSocket sticky routing, and API reverse proxying. |
 | | Redis | 7.2 | Celery task broker, execution lock mutex, and realtime pub/sub message bus. |
-| | Vercel | Edge Network | Global CDN hosting for static frontend SPA with production API rewrites. |
-| | Azure VM | Ubuntu 22.04 LTS | Cloud compute hosting Nginx, API, Hocuspocus cluster, and runner worker. |
+| | Vercel | Edge Network | Prepared edge CDN configuration for static frontend SPA with API rewrites. |
+| | Azure VM | Ubuntu 24.04 LTS | Target cloud VM specification for Nginx, API, Hocuspocus cluster, and runner worker. |
 
 ---
 
@@ -153,17 +153,17 @@ Untrusted code execution introduces severe host risk if uncontained. CodeSync ex
 
 | Containment Parameter | Configuration | Security Enforcement |
 |---|---|---|
-| **Network Isolation** | `network_mode="none"` | Drops entire network stack; completely blocks SSRF, botnet dialing, and data exfiltration. |
-| **Filesystem Immutability** | `read_only=True` | Root filesystem mounted read-only; blocks binary tampering and persistent rootkits. |
-| **Ephemeral Working Dir** | `tmpfs={"/tmp": ...}` | In-memory RAM disk for source files (`size=16m,noexec,nosuid,nodev` for Python/JS; `exec` for C++ compilation); zero host disk persistence. |
-| **Unprivileged Execution** | `user="10001:10001"` | Executes as unprivileged `sandbox` user; blocks root escalation within the container. |
-| **Capability Stripping** | `cap_drop=["ALL"]` | Drops all Linux capabilities (`CAP_SYS_ADMIN`, `CAP_NET_ADMIN`, `CAP_CHOWN`, etc.). |
-| **Privilege Escalation Block** | `security_opt=["no-new-privileges:true"]` | Prevents `setuid` binaries from gaining elevated permissions. |
-| **Memory Ceiling** | `mem_limit="128m"`, `memswap_limit="128m"` | Hard cgroup RAM ceiling with zero swap; OOM terminates runaway memory bombs instantly (exit 137). |
-| **CPU Throttling** | `nano_cpus=500_000_000` | Limits container to 0.5 CPU core; prevents infinite loops from starving host system resources. |
-| **Process Table Cap** | `pids_limit=64` | Process ceiling; prevents fork bombs (`EAGAIN` / `BlockingIOError`). |
-| **Execution Timeout** | 10 seconds | Supervisor thread terminates hanging processes and infinite loops. |
-| **Output Flood Cap** | 64 KB (`65536` bytes) | Guards against memory and network saturation from stdout infinite spam. |
+| **Network Isolation** | `network_mode="none"` | Disables container network stack, mitigating outbound network calls, SSRF, and network data exfiltration. |
+| **Filesystem Immutability** | `read_only=True` | Mounts root filesystem as read-only, preventing unauthorized modifications to container binaries and filesystem persistence. |
+| **Ephemeral Working Dir** | `tmpfs={"/tmp": ...}` | In-memory RAM disk for source files (`size=16m,noexec,nosuid,nodev` for Python/JS; `exec` for C++ compilation) without writing execution files to host disk storage. |
+| **Unprivileged Execution** | `user="10001:10001"` | Executes as unprivileged `sandbox` user (UID 10001), preventing container processes from running with root privileges. |
+| **Capability Stripping** | `cap_drop=["ALL"]` | Drops all Linux capabilities (`CAP_SYS_ADMIN`, `CAP_NET_ADMIN`, `CAP_CHOWN`, etc.) to restrict kernel-level container actions. |
+| **Privilege Escalation Block** | `security_opt=["no-new-privileges:true"]` | Prevents `setuid` binaries from acquiring elevated permissions during execution. |
+| **Memory Ceiling** | `mem_limit="128m"`, `memswap_limit="128m"` | Enforces strict cgroup RAM ceiling with swap disabled; kernel OOM killer terminates processes exceeding 128 MB (exit 137). |
+| **CPU Throttling** | `nano_cpus=500_000_000` | Limits container to 0.5 CPU core, preventing high-CPU loops from starving host system resources. |
+| **Process Table Cap** | `pids_limit=64` | Limits container process table to 64 PIDs to mitigate fork bomb exhaustion (`EAGAIN` / `BlockingIOError`). |
+| **Execution Timeout** | 10 seconds | Supervisor thread enforces a 10s wall-clock timeout to terminate hanging or long-running processes. |
+| **Output Flood Cap** | 64 KB (`65536` bytes) | Truncates stdout/stderr streams exceeding 64 KB to protect against memory and network buffer saturation. |
 
 ### Adversarial Attack Verification Suite
 
@@ -180,7 +180,7 @@ A dedicated automated adversarial suite (`apps/runner/tests/test_adversarial.py`
 
 ### Containment Boundaries (What This Does Not Protect Against)
 
-While Docker cgroup and capability isolation stops script-level attacks and unauthorized privilege escalation, standard containerization shares the underlying host Linux kernel. It does not protect against:
+While Docker cgroup and capability isolation provides strong defense-in-depth against untrusted userland scripts and standard privilege escalation vectors, containerized processes share the underlying host Linux kernel. It does not protect against:
 - **Zero-day Linux kernel privilege escalations** that escape Linux namespace containment.
 - **CPU cache timing or speculative execution side-channel attacks** across co-located containers on the same physical host.
 
@@ -237,11 +237,11 @@ To prevent resource exhaustion from concurrent execution requests within the sam
 
 CodeSync maintains a strict automated test suite verifying correctness, concurrency, and adversarial containment across every service layer.
 
-### Automated Test Suite (51 Tests Total)
+### Automated Test Suite (51 Tests in CI, 57 Total)
 
 | Service Layer | Test Framework | Test Scope | Result |
 |---|---|---|---|
-| **API (`apps/api`)** | pytest + pytest-django | Room creation, membership RBAC, SimpleJWT auth, invite link tokens, snapshot endpoints, run serialization, and rate limits. | **31 passed** |
+| **API (`apps/api`)** | pytest + pytest-django | Room creation, membership RBAC, invite link tokens, snapshot endpoints, run serialization, and rate limits (31 rooms tests executed in CI; 6 accounts auth tests). | **31 passed in CI** (37 total) |
 | **Realtime (`apps/realtime`)** | Vitest | Yjs document convergence, two-layer viewer edit rejection, snapshot debouncing, health probes, and Redis cluster pub/sub sync. | **9 passed** |
 | **Runner (`apps/runner`)** | pytest | Celery task invocation, output chunk streaming, reaper daemon sweeps, and the **8 adversarial security exploits**. | **11 passed** |
 | **Web (`apps/web`)** | TypeScript (`tsc`) + Vite | Strict TypeScript typechecking (`--noEmit`) and production static bundle compilation. | **Verified** |
@@ -249,8 +249,9 @@ CodeSync maintains a strict automated test suite verifying correctness, concurre
 ### Continuous Integration Pipeline
 
 GitHub Actions runs on every push and pull request to `main` (`.github/workflows/ci.yml`):
-- **`python-test` Job**: Boots ephemeral `postgres:16-alpine` and `redis:7-alpine` service containers, executes database migrations, and runs all 42 pytest tests across the API and execution runner.
-- **`node-test` Job**: Boots `redis:7-alpine`, executes pnpm typechecks and test suites for the realtime collaboration engine, and validates the frontend production build.
+- **`python-test` Job**: Boots ephemeral `postgres:16-alpine` and `redis:7-alpine` service containers, executes database migrations, and runs all 42 pytest tests across the API rooms suite (31 tests) and execution runner suite (11 tests).
+- **`node-test` Job**: Boots `redis:7-alpine`, executes pnpm typechecks, runs the 9 Vitest tests for the realtime engine, and validates the frontend production build.
+- **`clean-clone-smoke` Job**: Boots the full stack from a clean clone and verifies end-to-end service health, room convergence, and sandboxed execution via `scripts/smoke_test.py`.
 
 ---
 
@@ -294,7 +295,7 @@ For Windows developers using PowerShell, Docker Desktop, and Docker Compose:
 
 #### 1. Prerequisites
 - [Docker Desktop for Windows](https://docs.docker.com/desktop/setup/install/windows-install/) (ensure Docker Desktop is running with WSL 2 backend; verify with `docker info`)
-- [Python 3.11+](https://www.python.org/)
+- [Python 3.12+](https://www.python.org/)
 - Windows PowerShell 5.1+ or PowerShell Core 7+
 
 #### 2. Safe Environment Setup & Preflight Check
@@ -380,15 +381,16 @@ pnpm --prefix apps/web build
 
 ---
 
-## Deployment
+## Deployment (Architecture & Prepared Configuration)
 
-CodeSync runs in production across a hybrid cloud topology combining **Vercel** and **Microsoft Azure**:
+CodeSync includes complete deployment configurations designed for a hybrid cloud topology combining **Vercel** and a cloud Linux VM (such as **Microsoft Azure**, AWS, or DigitalOcean):
 
-- **Edge Frontend**: Hosted globally on Vercel's Edge Network, serving the React 18 SPA and proxying `/api/*` REST calls to the Azure backend.
-- **Compute & Execution Tier**: Hosted on an Azure Linux VM (`Standard_B2s`, Ubuntu 24.04 LTS) running Docker Compose orchestration for Nginx, Gunicorn/Django API, two clustered Hocuspocus realtime instances, and the Celery execution runner with host Docker daemon access.
-- **Persistence & Gateway**: Backed by Azure Database for PostgreSQL Flexible Server, Redis 7 message bus, and an Nginx reverse proxy terminating Let's Encrypt SSL certificates under domain `https://codesyncapp.duckdns.org`.
+- **Edge Frontend**: Prepared for Vercel's Edge Network, serving the React 18 SPA and proxying `/api/*` REST calls to the backend API via `vercel.json` rewrites.
+- **Compute & Execution Tier**: Configured via `docker-compose.prod.yml` for deployment on an Ubuntu Linux VM (`Standard_B2s`, Ubuntu 24.04 LTS) running containerized Nginx, Gunicorn/Django API, two clustered Hocuspocus realtime instances, and the Celery execution runner with host Docker daemon access.
+- **Persistence & Gateway**: Configured to connect to managed PostgreSQL (such as Azure Database for PostgreSQL Flexible Server), Redis 7 message bus, and an Nginx reverse proxy with SSL termination templates.
 
-For step-by-step Azure provisioning scripts, environment configuration, systemd services, and production deployment checklists, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+> [!NOTE]
+> The repository provides complete configuration files (`docker-compose.prod.yml`, `vercel.json`, `docker/nginx/nginx.prod.conf`) and provisioning runbooks for this target architecture. For step-by-step Azure provisioning scripts, environment configuration, systemd services, and production deployment checklists, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ---
 
@@ -436,7 +438,7 @@ codesync/
    Switching between dark and light themes dynamically in Monaco initially triggered full editor component remounts, which severed active `y-monaco` bindings and caused brief WebSocket dropouts. Refactoring theme management to mutate Monaco's global theme registry in place preserved both editor model state and active socket connections without visual stutter.
 
 3. **Defense-in-Depth Against Malicious Payloads**:
-   Client-side permission toggles (`readOnly: true` in Monaco) are purely visual and offer no security against forged WebSocket packets. True multi-tenant safety required dual-layer server verification: connection context rejection during authentication, coupled with deep binary frame inspection that discards unauthorized Yjs update frames before they reach the server's in-memory `Y.Doc`.
+   Client-side permission toggles (`readOnly: true` in Monaco) are purely visual and offer no security against forged WebSocket packets. Enforcing viewer restrictions reliably required dual-layer server verification: connection context rejection during authentication, coupled with deep binary frame inspection that discards unauthorized Yjs update frames before they reach the server's in-memory `Y.Doc`.
 
 ### What I'd Do Next
 
