@@ -288,6 +288,45 @@ Run the automated smoke test suite to verify health endpoints, guest room creati
 make smoke
 ```
 
+### Windows (PowerShell) Quick Start
+
+For Windows developers using PowerShell, Docker Desktop, and Docker Compose:
+
+#### 1. Prerequisites
+- [Docker Desktop for Windows](https://docs.docker.com/desktop/setup/install/windows-install/) (ensure Docker Desktop is running with WSL 2 backend; verify with `docker info`)
+- [Python 3.11+](https://www.python.org/)
+- Windows PowerShell 5.1+ or PowerShell Core 7+
+
+#### 2. Safe Environment Setup & Preflight Check
+Safely create the `.env` configuration file without overwriting an existing one, then run preflight diagnostics:
+```powershell
+# Safely create .env only if it does not already exist (never overwrites)
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+
+# Run preflight diagnostics
+python scripts/doctor.py
+```
+
+#### 3. Start the Full Stack
+Build and boot all services (PostgreSQL, Redis, Django API, Realtime cluster, Sandbox Runner, Nginx, and Web frontend):
+```powershell
+docker compose --profile full up --build
+```
+> [!TIP]
+> The initial build automatically builds the language sandbox container images (`codesync-sandbox-python`, `codesync-sandbox-javascript`, `codesync-sandbox-cpp`). Once initialized, open [http://localhost:5173](http://localhost:5173) in your browser.
+
+#### 4. Run Smoke Tests (Second Terminal)
+Open a second PowerShell window in the repository root and verify the running stack:
+```powershell
+python scripts/smoke_test.py
+```
+
+#### 5. Stop the Stack
+To stop all containers and remove orphan resources cleanly, press `Ctrl+C` in the running terminal, or run from another PowerShell terminal:
+```powershell
+docker compose --profile full down --remove-orphans
+```
+
 ### Alternative: Hybrid Development Mode (Fast Hot-Reload)
 For active local development with instant hot reload:
 ```bash

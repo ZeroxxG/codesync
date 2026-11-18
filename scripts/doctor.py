@@ -133,11 +133,18 @@ def main():
 
     # 2. Docker Daemon
     daemon_ok, daemon_msg = check_docker_daemon()
+    if sys.platform == "win32":
+        docker_fix = "Start Docker Desktop and verify with 'docker info'."
+    elif sys.platform == "darwin":
+        docker_fix = "Start Docker Desktop."
+    else:
+        docker_fix = "Run 'sudo systemctl start docker'."
+
     checks.append((
         daemon_ok,
         "Docker Daemon",
         daemon_msg,
-        "Start Docker Desktop or run 'sudo systemctl start docker'.",
+        docker_fix,
     ))
 
     # 3. Environment configuration file
