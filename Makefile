@@ -1,4 +1,4 @@
-.PHONY: doctor smoke setup build-sandboxes dev dev-infra test lint lint-python lint-node help
+.PHONY: doctor smoke setup build-sandboxes dev-infra dev down test test-api test-realtime test-web test-runner lint lint-python lint-node help
 
 # ---------------------------------------------------------------------------
 # Diagnostics & Health Preflight
