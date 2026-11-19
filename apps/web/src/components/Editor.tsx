@@ -11,18 +11,51 @@ interface EditorProps {
   provider: HocuspocusProvider;
   language: string;
   readOnly?: boolean;
+  onCursorChange?: (line: number, column: number) => void;
+  onMount?: (editorInstance: editor.IStandaloneCodeEditor) => void;
 }
 
-export const Editor: React.FC<EditorProps> = ({ doc, provider, language, readOnly = false }) => {
+export const Editor: React.FC<EditorProps> = ({
+  doc,
+  provider,
+  language,
+  readOnly = false,
+  onCursorChange,
+  onMount,
+}) => {
   const { theme } = useTheme();
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const bindingRef = useRef<MonacoBinding | null>(null);
+  const cursorListenerRef = useRef<{ dispose: () => void } | null>(null);
+  const onCursorChangeRef = useRef(onCursorChange);
   const [editorReady, setEditorReady] = useState(false);
+
+  useEffect(() => {
+    onCursorChangeRef.current = onCursorChange;
+  }, [onCursorChange]);
 
   const handleEditorDidMount: OnMount = (editorInstance) => {
     editorRef.current = editorInstance;
     setEditorReady(true);
+    onMount?.(editorInstance);
+
+    // Track cursor movements for the status bar without stale closures
+    if (cursorListenerRef.current) {
+      cursorListenerRef.current.dispose();
+    }
+    cursorListenerRef.current = editorInstance.onDidChangeCursorPosition((e) => {
+      onCursorChangeRef.current?.(e.position.lineNumber, e.position.column);
+    });
   };
+
+  useEffect(() => {
+    return () => {
+      if (cursorListenerRef.current) {
+        cursorListenerRef.current.dispose();
+        cursorListenerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (editorRef.current) {
@@ -70,24 +103,28 @@ export const Editor: React.FC<EditorProps> = ({ doc, provider, language, readOnl
   }, [editorReady, doc, provider]);
 
   return (
-    <div className={`relative w-full h-full min-h-[500px] border rounded-lg overflow-hidden transition-colors ${
-      theme === "dark" ? "border-slate-800 bg-[#1e1e1e]" : "border-slate-300 bg-white shadow-sm"
-    }`}>
+    <div className="relative w-full h-full overflow-hidden bg-vscode-editor">
       <MonacoEditor
         height="100%"
+        width="100%"
         language={language === "cpp" ? "cpp" : language}
         theme={theme === "dark" ? "vs-dark" : "vs"}
         options={{
           readOnly,
-          fontSize: 14,
-          fontFamily: "'Fira Code', 'Cascadia Code', Consolas, monospace",
-          minimap: { enabled: true },
+          fontSize: 13,
+          lineHeight: 20,
+          fontFamily: "'Fira Code', 'Cascadia Code', Consolas, 'Courier New', monospace",
+          fontLigatures: true,
+          minimap: { enabled: true, side: "right" },
           smoothScrolling: true,
           cursorBlinking: readOnly ? "solid" : "smooth",
           automaticLayout: true,
-          tabSize: 2,
+          tabSize: 4,
           wordWrap: "on",
-          padding: { top: 12, bottom: 12 },
+          padding: { top: 8, bottom: 8 },
+          renderLineHighlight: "all",
+          scrollBeyondLastLine: false,
+          fixedOverflowWidgets: true,
         }}
         onMount={handleEditorDidMount}
       />

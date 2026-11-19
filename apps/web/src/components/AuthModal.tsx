@@ -44,25 +44,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="relative w-full max-w-md bg-vscode-sidebar border border-vscode-border rounded shadow-2xl p-6 text-vscode-text font-sans">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+          className="absolute top-4 right-4 p-1 text-vscode-muted hover:text-vscode-text rounded hover:bg-vscode-hover transition-colors"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
 
-        <div className="flex border-b border-slate-800 mb-6">
+        <div className="flex border-b border-vscode-border mb-5">
           <button
             onClick={() => {
               setMode("login");
               setError(null);
             }}
-            className={`flex-1 pb-3 text-sm font-semibold transition-colors border-b-2 ${
+            className={`flex-1 pb-2.5 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 ${
               mode === "login"
-                ? "border-blue-500 text-blue-400"
-                : "border-transparent text-slate-400 hover:text-slate-200"
+                ? "border-[#007acc] text-vscode-text"
+                : "border-transparent text-vscode-muted hover:text-vscode-text"
             }`}
           >
             Sign In
@@ -72,10 +72,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               setMode("register");
               setError(null);
             }}
-            className={`flex-1 pb-3 text-sm font-semibold transition-colors border-b-2 ${
+            className={`flex-1 pb-2.5 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 ${
               mode === "register"
-                ? "border-blue-500 text-blue-400"
-                : "border-transparent text-slate-400 hover:text-slate-200"
+                ? "border-[#007acc] text-vscode-text"
+                : "border-transparent text-vscode-muted hover:text-vscode-text"
             }`}
           >
             Create Account
@@ -83,53 +83,53 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-rose-950/60 border border-rose-800/80 text-rose-300 text-xs">
+          <div className="mb-4 p-2.5 rounded bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-mono">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-vscode-muted mb-1">
               Username
             </label>
             <div className="relative">
-              <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+              <User className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-vscode-muted" />
               <input
                 type="text"
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="developer123"
-                className="w-full bg-slate-800/80 border border-slate-700 rounded-lg pl-9 pr-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-vscode-input border border-vscode-border rounded pl-8 pr-3 py-1.5 text-xs text-vscode-text placeholder-vscode-muted focus:outline-none focus:border-[#007acc]"
               />
             </div>
           </div>
 
           {mode === "register" && (
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-vscode-muted mb-1">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                <Mail className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-vscode-muted" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="dev@example.com"
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-lg pl-9 pr-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-vscode-input border border-vscode-border rounded pl-8 pr-3 py-1.5 text-xs text-vscode-text placeholder-vscode-muted focus:outline-none focus:border-[#007acc]"
                 />
               </div>
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-vscode-muted mb-1">
               Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+              <Lock className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-vscode-muted" />
               <input
                 type="password"
                 required
@@ -137,25 +137,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-slate-800/80 border border-slate-700 rounded-lg pl-9 pr-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-vscode-input border border-vscode-border rounded pl-8 pr-3 py-1.5 text-xs text-vscode-text placeholder-vscode-muted focus:outline-none focus:border-[#007acc]"
               />
             </div>
           </div>
 
           {mode === "register" && (
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-vscode-muted mb-1">
                 Confirm Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                <Lock className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-vscode-muted" />
                 <input
                   type="password"
                   required
                   value={passwordConfirm}
                   onChange={(e) => setPasswordConfirm(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-lg pl-9 pr-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-vscode-input border border-vscode-border rounded pl-8 pr-3 py-1.5 text-xs text-vscode-text placeholder-vscode-muted focus:outline-none focus:border-[#007acc]"
                 />
               </div>
             </div>
@@ -164,7 +164,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 px-4 rounded-lg transition-colors shadow-lg shadow-blue-600/20 disabled:opacity-50"
+            className="w-full mt-2 bg-[#007acc] hover:bg-[#0062a3] text-white font-medium py-2 px-4 rounded text-xs transition-colors shadow-sm disabled:opacity-50"
           >
             {loading ? "Processing..." : mode === "login" ? "Sign In" : "Create Account"}
           </button>

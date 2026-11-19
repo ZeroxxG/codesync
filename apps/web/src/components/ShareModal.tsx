@@ -73,7 +73,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     return () => {
       mounted = false;
     };
-  }, [isOpen, isOwner, roomSlug]);
+  }, [isOpen, isOwner, roomSlug, authFetch]);
 
   if (!isOpen) return null;
 
@@ -152,33 +152,38 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-7 max-h-[90vh] overflow-y-auto">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="relative w-full max-w-lg bg-vscode-sidebar border border-vscode-border rounded shadow-2xl flex flex-col overflow-hidden text-vscode-text font-sans">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-vscode-border bg-vscode-toolbar">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-[#007acc]" />
+            <h2 className="text-sm font-semibold text-vscode-text">
+              Share Workspace &bull; <span className="font-normal text-vscode-muted">{roomName}</span>
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 text-vscode-muted hover:text-vscode-text rounded hover:bg-vscode-hover transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
-        <h2 className="text-lg font-bold text-white mb-1">Share Room — {roomName}</h2>
-        <p className="text-xs text-slate-400 mb-6">
-          Invite teammates to collaborate or share a view-only link with stakeholders.
-        </p>
-
-        <div className="space-y-6">
+        {/* Body */}
+        <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
           {/* Read Only Link */}
-          <div className="space-y-2 bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/80">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
+          <div className="space-y-2 p-3 rounded bg-vscode-panel border border-vscode-border">
+            <div className="flex items-center justify-between text-xs font-semibold text-vscode-text">
               <div className="flex items-center gap-1.5 text-amber-400">
-                <Eye className="w-4 h-4" />
-                <span>Read-Only Share Link (Public Access)</span>
+                <Eye className="w-3.5 h-3.5" />
+                <span>Read-Only Link (Live View Without Login)</span>
               </div>
               {isOwner && onRefreshViewerToken && (
                 <button
                   onClick={handleRefresh}
                   disabled={refreshing}
-                  className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-white transition-colors"
+                  className="flex items-center gap-1 text-[11px] text-vscode-muted hover:text-vscode-text transition-colors"
                   title="Generate new token and invalidate previous link"
                 >
                   <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
@@ -186,50 +191,50 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 </button>
               )}
             </div>
-            <p className="text-[11px] text-slate-400">
-              Anyone with this link can view code in real-time without signing in.
+            <p className="text-[11px] text-vscode-muted">
+              Anyone with this link can watch collaborative code edits in real-time.
             </p>
             <div className="flex gap-2">
               <input
                 type="text"
                 readOnly
                 value={viewUrl || "Generating view link..."}
-                className="flex-1 bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-amber-200/90 focus:outline-none"
+                className="flex-1 bg-vscode-input border border-vscode-border rounded px-2.5 py-1 text-xs font-mono text-amber-300/90 focus:outline-none"
               />
               <button
                 onClick={() => viewUrl && handleCopy(viewUrl, "view")}
                 disabled={!viewUrl}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1 px-3 py-1 rounded text-xs font-medium transition-colors ${
                   viewUrl
-                    ? "bg-amber-600 hover:bg-amber-500 text-white cursor-pointer"
-                    : "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
+                    ? "bg-vscode-hover hover:bg-vscode-hover/80 text-vscode-text border border-vscode-border cursor-pointer"
+                    : "bg-vscode-input text-vscode-muted cursor-not-allowed border border-vscode-border"
                 }`}
               >
-                {copiedType === "view" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedType === "view" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copiedType === "view" ? "Copied" : "Copy"}</span>
               </button>
             </div>
           </div>
 
           {/* Edit / Collaborate Link */}
-          <div className="space-y-2 bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/80">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-400">
-              <Users className="w-4 h-4" />
+          <div className="space-y-2 p-3 rounded bg-vscode-panel border border-vscode-border">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-[#007acc]">
+              <Users className="w-3.5 h-3.5" />
               <span>Collaborator Link (Full Edit Access)</span>
             </div>
-            <p className="text-[11px] text-slate-400">
-              Registered members with edit permissions can collaborate using this link.
+            <p className="text-[11px] text-vscode-muted">
+              Users signed in to an authorized account can write and execute code.
             </p>
             <div className="flex gap-2">
               <input
                 type="text"
                 readOnly
                 value={editUrl}
-                className="flex-1 bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-blue-200/90 focus:outline-none"
+                className="flex-1 bg-vscode-input border border-vscode-border rounded px-2.5 py-1 text-xs font-mono text-blue-300/90 focus:outline-none"
               />
               <button
                 onClick={() => handleCopy(editUrl, "edit")}
-                className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium transition-colors"
+                className="flex items-center gap-1 px-3 py-1 bg-[#007acc] hover:bg-[#0062a3] text-white rounded text-xs font-medium transition-colors"
               >
                 {copiedType === "edit" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copiedType === "edit" ? "Copied" : "Copy"}</span>
@@ -239,13 +244,13 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
           {/* Member Invitation (Owners only) */}
           {isOwner && (
-            <div className="space-y-3 pt-2 border-t border-slate-800">
+            <div className="space-y-3 pt-3 border-t border-vscode-border">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-vscode-text flex items-center gap-1.5">
                   <Shield className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Room Collaborators</span>
                 </span>
-                <span className="text-[11px] text-slate-500">
+                <span className="text-[11px] text-vscode-muted">
                   {members.length} member{members.length === 1 ? "" : "s"}
                 </span>
               </div>
@@ -257,12 +262,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                   placeholder="Invite user by username..."
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
-                  className="flex-1 bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  className="flex-1 bg-vscode-input border border-vscode-border rounded px-2.5 py-1.5 text-xs text-vscode-text placeholder-vscode-muted focus:outline-none focus:border-[#007acc]"
                 />
                 <select
                   value={memberRole}
                   onChange={(e) => setMemberRole(e.target.value as "editor" | "viewer")}
-                  className="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1.5 focus:outline-none"
+                  className="bg-vscode-input border border-vscode-border text-vscode-text text-xs rounded px-2 py-1.5 focus:outline-none focus:border-[#007acc]"
                 >
                   <option value="editor">Editor</option>
                   <option value="viewer">Viewer</option>
@@ -270,7 +275,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 <button
                   type="submit"
                   disabled={addingMember || !newUsername.trim()}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-xs font-medium transition-colors"
+                  className="flex items-center gap-1 px-3 py-1.5 bg-[#007acc] hover:bg-[#0062a3] disabled:opacity-50 text-white rounded text-xs font-medium transition-colors"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
                   <span>{addingMember ? "Adding..." : "Add"}</span>
@@ -283,18 +288,18 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
               {/* Members list */}
               {loadingMembers ? (
-                <div className="text-center py-2 text-xs text-slate-500">Loading collaborators...</div>
+                <div className="text-center py-2 text-xs text-vscode-muted">Loading collaborators...</div>
               ) : (
-                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
                   {members.map((member) => (
                     <div
                       key={member.id}
-                      className="flex items-center justify-between bg-slate-800/50 border border-slate-800 px-2.5 py-1.5 rounded-lg text-xs"
+                      className="flex items-center justify-between bg-vscode-panel border border-vscode-border px-2.5 py-1.5 rounded text-xs"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-slate-200">{member.username}</span>
+                        <span className="font-medium text-vscode-text">{member.username}</span>
                         <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                          className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
                             member.role === "owner"
                               ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
                               : member.role === "editor"
@@ -308,7 +313,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                       {member.role !== "owner" && (
                         <button
                           onClick={() => handleRemoveMember(member.user_id)}
-                          className="text-slate-500 hover:text-rose-400 transition-colors p-1 rounded"
+                          className="text-vscode-muted hover:text-rose-400 transition-colors p-1 rounded"
                           title="Remove collaborator"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -320,6 +325,16 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               )}
             </div>
           )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-2.5 border-t border-vscode-border bg-vscode-toolbar flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-3 py-1 rounded bg-vscode-hover hover:bg-vscode-hover/80 text-vscode-text border border-vscode-border text-xs transition-colors"
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>
