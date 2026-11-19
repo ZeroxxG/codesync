@@ -4,23 +4,66 @@
 
 :root {
   color-scheme: dark;
+  --editor-bg: #1e1e1e;
+  --sidebar-bg: #252526;
+  --panel-bg: #1e1e1e;
+  --activity-bar-bg: #333333;
+  --toolbar-bg: #2d2d30;
+  --statusbar-bg: #007acc;
+  --border-color: #3c3c3c;
+  --text-primary: #cccccc;
+  --text-secondary: #858585;
+  --accent: #007acc;
+  --hover-bg: #2a2d2e;
+  --active-bg: #37373d;
+  --selection-bg: #264f78;
+  --tab-active-bg: #1e1e1e;
+  --tab-inactive-bg: #2d2d2d;
+  --badge-bg: #4d4d4d;
+  --input-bg: #2d2d30;
 }
 
 :root.light {
   color-scheme: light;
+  --editor-bg: #ffffff;
+  --sidebar-bg: #f3f3f3;
+  --panel-bg: #ffffff;
+  --activity-bar-bg: #e8e8e8;
+  --toolbar-bg: #f3f3f3;
+  --statusbar-bg: #007acc;
+  --border-color: #d4d4d4;
+  --text-primary: #333333;
+  --text-secondary: #777777;
+  --accent: #007acc;
+  --hover-bg: #e8e8e8;
+  --active-bg: #d0d0d0;
+  --selection-bg: #add6ff;
+  --tab-active-bg: #ffffff;
+  --tab-inactive-bg: #ececec;
+  --badge-bg: #c4c4c4;
+  --input-bg: #ffffff;
 }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-    Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--editor-bg);
+  color: var(--text-primary);
   overflow: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Custom Scrollbars */
+/* Developer Monospace Typography */
+.font-code {
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+}
+
+/* VS Code Style Scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -28,18 +71,27 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.2);
-  border-radius: 4px;
+  background: rgba(121, 121, 121, 0.4);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.4);
+  background: rgba(100, 100, 100, 0.7);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Clean Resizer / Split divider styling */
+.resizer-hover:hover {
+  background-color: var(--accent) !important;
+  transition: background-color 0.15s ease;
 }
 
 /* Monaco Remote Cursor Styling */
 .yRemoteSelection {
   background-color: rgba(250, 204, 21, 0.25);
-  border-radius: 2px;
+  border-radius: 1px;
 }
 
 .yRemoteSelectionHead {
@@ -55,12 +107,13 @@ body {
   top: -18px;
   left: -2px;
   background-color: inherit;
-  color: #0f172a;
-  font-size: 11px;
-  font-weight: 600;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 500;
   padding: 1px 4px;
-  border-radius: 3px;
+  border-radius: 2px;
   white-space: nowrap;
   pointer-events: none;
   line-height: 1.2;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
