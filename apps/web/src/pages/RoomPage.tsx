@@ -400,10 +400,10 @@ export const RoomPage: React.FC<RoomPageProps> = ({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-400">
+      <div className="min-h-screen flex items-center justify-center bg-canvas text-muted">
         <div className="flex items-center gap-3">
-          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <span>Loading room session...</span>
+          <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+          <span className="font-mono text-xs uppercase tracking-[0.14em]">Loading room session…</span>
         </div>
       </div>
     );
@@ -413,14 +413,16 @@ export const RoomPage: React.FC<RoomPageProps> = ({
     const isAccessDenied = error?.toLowerCase().includes("access denied");
 
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 text-slate-300 gap-4 p-4 text-center">
-        <div className="w-12 h-12 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-canvas text-fg gap-4 p-4 text-center">
+        <div className="w-12 h-12 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/25 flex items-center justify-center">
           <ShieldAlert className="w-6 h-6" />
         </div>
-        <div className="max-w-md space-y-1">
-          <p className="text-rose-400 font-semibold">{error || "Could not connect to session"}</p>
+        <div className="max-w-md space-y-1.5">
+          <p className="text-rose-400 font-semibold font-display text-lg">
+            {error || "Could not connect to session"}
+          </p>
           {isAccessDenied && (
-            <p className="text-xs text-slate-400">
+            <p className="text-xs leading-relaxed text-muted">
               This room is private. You must sign in to an authorized account to collaborate, or use the read-only share link provided by the room owner.
             </p>
           )}
@@ -429,16 +431,13 @@ export const RoomPage: React.FC<RoomPageProps> = ({
           {isAccessDenied && !user && (
             <button
               onClick={() => setAuthModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
+              className="btn-signal !text-xs"
             >
-              <LogIn className="w-4 h-4" /> Sign In / Register
+              <LogIn className="w-4 h-4" /> Sign in / Register
             </button>
           )}
-          <button
-            onClick={onLeaveRoom}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm transition-colors text-slate-300"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back to Home
+          <button onClick={onLeaveRoom} className="btn-quiet !text-xs">
+            <ArrowLeft className="w-4 h-4" /> Back to home
           </button>
         </div>
         <AuthModal
@@ -450,33 +449,34 @@ export const RoomPage: React.FC<RoomPageProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950 text-slate-100 overflow-hidden">
+    <div className="flex flex-col h-screen bg-canvas text-fg overflow-hidden">
       {/* Top Navbar */}
-      <header className="h-14 border-b border-slate-800 bg-slate-900/60 backdrop-blur-md px-4 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-4">
+      <header className="h-14 border-b border-line bg-surface px-3 sm:px-4 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
           <button
             onClick={onLeaveRoom}
-            className="p-1.5 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line text-muted hover:bg-raised hover:text-fg transition-colors"
             title="Leave room"
+            aria-label="Leave room"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <div>
-            <h1 className="text-sm font-semibold text-white flex items-center gap-2">
-              {room?.name || "CodeSync Room"}
-              <span className="text-[11px] font-mono font-normal text-slate-500 bg-slate-800/80 px-1.5 py-0.5 rounded">
+          <div className="min-w-0">
+            <h1 className="text-sm font-semibold text-fg flex items-center gap-2">
+              <span className="truncate max-w-[9rem] sm:max-w-none">{room?.name || "CodeSync Room"}</span>
+              <span className="hidden sm:inline text-[10px] font-mono font-normal text-muted bg-raised px-1.5 py-0.5 rounded border border-line">
                 #{roomSlug}
               </span>
               {isReadOnly ? (
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded">
-                  <Eye className="w-3 h-3" /> View Only
+                <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.1em] bg-amber-500/10 text-amber-400 border border-amber-500/25 px-2 py-0.5 rounded">
+                  <Eye className="w-3 h-3" /> View
                 </span>
               ) : isOwner ? (
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded">
+                <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.1em] bg-accent/10 text-accentText border border-accent/25 px-2 py-0.5 rounded">
                   <ShieldCheck className="w-3 h-3" /> Owner
                 </span>
               ) : (
-                <span className="inline-flex items-center text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded">
+                <span className="inline-flex shrink-0 items-center text-[10px] font-semibold uppercase tracking-[0.1em] bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 px-2 py-0.5 rounded">
                   Editor
                 </span>
               )}
@@ -485,14 +485,16 @@ export const RoomPage: React.FC<RoomPageProps> = ({
         </div>
 
         {/* Center / Right controls */}
-        <div className="flex items-center gap-3">
-          <LanguageSelector
-            doc={session.doc}
-            roomSlug={roomSlug}
-            initialLanguage={room?.language || "python"}
-            onLanguageChange={(lang) => setCurrentLanguage(lang)}
-            readOnly={isReadOnly}
-          />
+        <div className="flex items-center gap-1.5 sm:gap-2.5">
+          <div className="hidden md:flex items-center">
+            <LanguageSelector
+              doc={session.doc}
+              roomSlug={roomSlug}
+              initialLanguage={room?.language || "python"}
+              onLanguageChange={(lang) => setCurrentLanguage(lang)}
+              readOnly={isReadOnly}
+            />
+          </div>
 
           <PresenceBar
             provider={session.provider}
@@ -502,33 +504,36 @@ export const RoomPage: React.FC<RoomPageProps> = ({
 
           <button
             onClick={() => setShareModalOpen(true)}
-            className="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-md font-medium text-slate-300 transition-colors"
+            className="flex items-center gap-1.5 text-xs h-8 px-2.5 rounded-lg border border-line text-muted hover:bg-raised hover:text-fg font-medium transition-colors"
+            title="Share room"
           >
             <Share2 className="w-3.5 h-3.5" />
-            <span>Share</span>
+            <span className="hidden lg:inline">Share</span>
           </button>
 
           <button
             onClick={() => setRunHistoryOpen(true)}
-            title="Execution History"
-            className="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-md font-medium text-slate-300 transition-colors"
+            title="Execution history"
+            className="hidden sm:flex items-center gap-1.5 text-xs h-8 px-2.5 rounded-lg border border-line text-muted hover:bg-raised hover:text-fg font-medium transition-colors"
           >
             <History className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">History</span>
+            <span className="hidden lg:inline">History</span>
           </button>
 
           <button
             onClick={toggleTheme}
             title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            aria-label="Toggle theme"
+            className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-raised hover:text-fg transition-colors"
           >
-            {theme === "dark" ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-blue-400" />}
+            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
 
           <button
             onClick={() => setShortcutsModalOpen(true)}
-            title="Keyboard Shortcuts (?)"
-            className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            title="Keyboard shortcuts (?)"
+            aria-label="Keyboard shortcuts"
+            className="hidden lg:flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-raised hover:text-fg transition-colors"
           >
             <HelpCircle className="w-4 h-4" />
           </button>
@@ -541,24 +546,25 @@ export const RoomPage: React.FC<RoomPageProps> = ({
                 ? "Viewers are not permitted to run code"
                 : isExecuting
                   ? "Code execution in progress..."
-                  : "Run Code (Ctrl+Enter)"
+                  : "Run code (Ctrl+Enter)"
             }
-            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md font-semibold transition-all ${isReadOnly
-                ? "bg-slate-800/60 text-slate-500 cursor-not-allowed border border-slate-700/50"
+            className={`flex items-center gap-1.5 text-xs h-8 px-3 rounded-lg font-semibold transition-all ${
+              isReadOnly
+                ? "bg-raised text-muted cursor-not-allowed border border-line"
                 : isExecuting
-                  ? "bg-amber-600/70 text-amber-100 cursor-wait animate-pulse"
-                  : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-900/30"
-              }`}
+                  ? "bg-amber-500/20 text-amber-300 cursor-wait border border-amber-500/30"
+                  : "bg-accent text-[#14180a] hover:brightness-105 active:scale-[0.98]"
+            }`}
           >
             {isExecuting ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
               <Play className="w-3.5 h-3.5 fill-current" />
             )}
-            <span>{isExecuting ? "Running..." : "Run"}</span>
+            <span>{isExecuting ? "Running" : "Run"}</span>
             {!isReadOnly && !isExecuting && (
-              <span className="hidden sm:inline-block ml-0.5 text-[10px] font-mono text-emerald-200/80 bg-emerald-700/50 px-1 py-0.5 rounded">
-                Ctrl+↵
+              <span className="hidden lg:inline-block ml-0.5 font-mono text-[10px] text-[#14180a]/60">
+                ⌘↵
               </span>
             )}
           </button>
@@ -566,7 +572,41 @@ export const RoomPage: React.FC<RoomPageProps> = ({
       </header>
 
       {/* Editor & Output Body */}
-      <main className="flex-1 p-3 pb-0 overflow-hidden flex flex-col">
+      <main className="flex-1 p-2 sm:p-3 overflow-hidden flex flex-col">
+        {/* Compact toolbar for small screens where the header controls collapse */}
+        <div className="mb-2 flex items-center justify-between gap-2 md:hidden">
+          <LanguageSelector
+            doc={session.doc}
+            roomSlug={roomSlug}
+            initialLanguage={room?.language || "python"}
+            onLanguageChange={(lang) => setCurrentLanguage(lang)}
+            readOnly={isReadOnly}
+          />
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setRunHistoryOpen(true)}
+              aria-label="Execution history"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-line text-muted hover:bg-raised hover:text-fg transition-colors"
+            >
+              <History className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={toggleTheme}
+              aria-label="Toggle theme"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-line text-muted hover:bg-raised hover:text-fg transition-colors sm:hidden"
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={() => setShortcutsModalOpen(true)}
+              aria-label="Keyboard shortcuts"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-line text-muted hover:bg-raised hover:text-fg transition-colors"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
         <div className="flex-1 min-h-0 overflow-hidden">
           <Editor
             doc={session.doc}
@@ -616,7 +656,7 @@ export const RoomPage: React.FC<RoomPageProps> = ({
       />
 
       {savedToast && (
-        <div className="fixed bottom-6 right-6 z-50 px-3.5 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-lg shadow-xl flex items-center gap-2 border border-emerald-500 animate-in fade-in slide-in-from-bottom-2 duration-150">
+        <div className="fixed bottom-6 right-6 z-50 px-3.5 py-2 bg-fg text-canvas text-xs font-semibold rounded-lg shadow-xl flex items-center gap-2 border border-line animate-pop-in">
           <span>Snapshot saved to PostgreSQL</span>
         </div>
       )}

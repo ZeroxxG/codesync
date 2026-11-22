@@ -22,6 +22,12 @@ interface ShareModalProps {
   onRefreshViewerToken?: () => Promise<string>;
 }
 
+const roleChip: Record<string, string> = {
+  owner: "bg-accent/10 text-accentText border-accent/25",
+  editor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25",
+  viewer: "bg-amber-500/10 text-amber-400 border-amber-500/25",
+};
+
 export const ShareModal: React.FC<ShareModalProps> = ({
   isOpen,
   onClose,
@@ -152,100 +158,107 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-7 max-h-[90vh] overflow-y-auto">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="modal-shell max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="modal-head">
+          <div className="flex items-center gap-3">
+            <div className="icon-tile h-9 w-9">
+              <Users className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="truncate font-display text-base font-bold text-fg">Share room</h2>
+              <p className="truncate font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+                {roomName} · #{roomSlug}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-raised hover:text-fg"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-        <h2 className="text-lg font-bold text-white mb-1">Share Room — {roomName}</h2>
-        <p className="text-xs text-slate-400 mb-6">
-          Invite teammates to collaborate or share a view-only link with stakeholders.
-        </p>
-
-        <div className="space-y-6">
+        <div className="space-y-4 p-5 sm:p-6">
           {/* Read Only Link */}
-          <div className="space-y-2 bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/80">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
-              <div className="flex items-center gap-1.5 text-amber-400">
-                <Eye className="w-4 h-4" />
-                <span>Read-Only Share Link (Public Access)</span>
+          <section className="rounded-xl border border-line bg-canvas p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Eye className="h-3.5 w-3.5 text-amber-400" />
+                <h3 className="text-[12px] font-semibold text-fg">Viewer link</h3>
+                <span className="chip !py-0.5 !text-[9px]">read-only</span>
               </div>
               {isOwner && onRefreshViewerToken && (
                 <button
                   onClick={handleRefresh}
                   disabled={refreshing}
-                  className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-white transition-colors"
+                  className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.1em] text-muted transition-colors hover:text-fg"
                   title="Generate new token and invalidate previous link"
                 >
-                  <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
-                  <span>Reset Token</span>
+                  <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
+                  reset
                 </button>
               )}
             </div>
-            <p className="text-[11px] text-slate-400">
-              Anyone with this link can view code in real-time without signing in.
+            <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+              Anyone with this link can watch the room live without signing in.
             </p>
-            <div className="flex gap-2">
+            <div className="mt-3 flex gap-2">
               <input
                 type="text"
                 readOnly
-                value={viewUrl || "Generating view link..."}
-                className="flex-1 bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-amber-200/90 focus:outline-none"
+                value={viewUrl || "Generating view link…"}
+                className="field flex-1 !py-2 font-mono !text-[11px]"
               />
               <button
                 onClick={() => viewUrl && handleCopy(viewUrl, "view")}
                 disabled={!viewUrl}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                  viewUrl
-                    ? "bg-amber-600 hover:bg-amber-500 text-white cursor-pointer"
-                    : "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
-                }`}
+                className="btn-quiet !px-3 !py-2 !text-[11px]"
               >
-                {copiedType === "view" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedType === "view" ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
                 <span>{copiedType === "view" ? "Copied" : "Copy"}</span>
               </button>
             </div>
-          </div>
+          </section>
 
           {/* Edit / Collaborate Link */}
-          <div className="space-y-2 bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/80">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-400">
-              <Users className="w-4 h-4" />
-              <span>Collaborator Link (Full Edit Access)</span>
+          <section className="rounded-xl border border-line bg-canvas p-4">
+            <div className="flex items-center gap-2">
+              <Shield className="h-3.5 w-3.5 text-accentText" />
+              <h3 className="text-[12px] font-semibold text-fg">Collaborator link</h3>
+              <span className="chip !py-0.5 !text-[9px]">edit</span>
             </div>
-            <p className="text-[11px] text-slate-400">
-              Registered members with edit permissions can collaborate using this link.
+            <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+              Signed-in members with edit permission can pair from this link.
             </p>
-            <div className="flex gap-2">
+            <div className="mt-3 flex gap-2">
               <input
                 type="text"
                 readOnly
                 value={editUrl}
-                className="flex-1 bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-blue-200/90 focus:outline-none"
+                className="field flex-1 !py-2 font-mono !text-[11px]"
               />
               <button
                 onClick={() => handleCopy(editUrl, "edit")}
-                className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium transition-colors"
+                className="btn-signal !px-3 !py-2 !text-[11px]"
               >
-                {copiedType === "edit" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedType === "edit" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 <span>{copiedType === "edit" ? "Copied" : "Copy"}</span>
               </button>
             </div>
-          </div>
+          </section>
 
           {/* Member Invitation (Owners only) */}
           {isOwner && (
-            <div className="space-y-3 pt-2 border-t border-slate-800">
+            <section className="space-y-3 border-t border-line pt-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Room Collaborators</span>
+                <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-fg">
+                  <Users className="h-3.5 w-3.5 text-muted" />
+                  Collaborators
                 </span>
-                <span className="text-[11px] text-slate-500">
+                <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
                   {members.length} member{members.length === 1 ? "" : "s"}
                 </span>
               </div>
@@ -254,15 +267,15 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               <form onSubmit={handleAddMember} className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Invite user by username..."
+                  placeholder="Invite by username…"
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
-                  className="flex-1 bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  className="field flex-1 !py-2 !text-xs"
                 />
                 <select
                   value={memberRole}
                   onChange={(e) => setMemberRole(e.target.value as "editor" | "viewer")}
-                  className="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1.5 focus:outline-none"
+                  className="rounded-lg border border-line bg-canvas px-2 text-xs text-fg outline-none focus:border-accent/70"
                 >
                   <option value="editor">Editor</option>
                   <option value="viewer">Viewer</option>
@@ -270,37 +283,31 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 <button
                   type="submit"
                   disabled={addingMember || !newUsername.trim()}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-xs font-medium transition-colors"
+                  className="btn-ink !px-3 !py-2 !text-[11px]"
                 >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>{addingMember ? "Adding..." : "Add"}</span>
+                  <UserPlus className="h-3.5 w-3.5" />
+                  <span>{addingMember ? "Adding…" : "Add"}</span>
                 </button>
               </form>
 
-              {memberError && (
-                <p className="text-[11px] text-rose-400">{memberError}</p>
-              )}
+              {memberError && <p className="text-[11px] text-rose-400">{memberError}</p>}
 
               {/* Members list */}
               {loadingMembers ? (
-                <div className="text-center py-2 text-xs text-slate-500">Loading collaborators...</div>
+                <div className="py-2 text-center font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+                  Loading…
+                </div>
               ) : (
-                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                <div className="max-h-40 space-y-1.5 overflow-y-auto pr-1">
                   {members.map((member) => (
                     <div
                       key={member.id}
-                      className="flex items-center justify-between bg-slate-800/50 border border-slate-800 px-2.5 py-1.5 rounded-lg text-xs"
+                      className="flex items-center justify-between rounded-lg border border-line bg-canvas px-3 py-2 text-xs"
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-slate-200">{member.username}</span>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="truncate font-medium text-fg">{member.username}</span>
                         <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                            member.role === "owner"
-                              ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
-                              : member.role === "editor"
-                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                              : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                          }`}
+                          className={`rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] ${roleChip[member.role]}`}
                         >
                           {member.role}
                         </span>
@@ -308,17 +315,22 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                       {member.role !== "owner" && (
                         <button
                           onClick={() => handleRemoveMember(member.user_id)}
-                          className="text-slate-500 hover:text-rose-400 transition-colors p-1 rounded"
+                          className="rounded p-1 text-muted transition-colors hover:text-rose-400"
                           title="Remove collaborator"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       )}
                     </div>
                   ))}
+                  {members.length === 0 && (
+                    <p className="py-2 text-center text-[11px] text-muted">
+                      No collaborators yet.
+                    </p>
+                  )}
                 </div>
               )}
-            </div>
+            </section>
           )}
         </div>
       </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import * as Y from "yjs";
-import { Code2 } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { resolveApiUrl } from "../lib/api";
 
 interface LanguageSelectorProps {
@@ -68,24 +68,34 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
     });
   };
 
+  const active = LANGUAGES.find((l) => l.id === currentLang) || LANGUAGES[0];
+
   return (
-    <div className={`flex items-center gap-2 bg-slate-900/80 border border-slate-800 rounded-md px-2.5 py-1 text-xs ${readOnly ? "opacity-75" : ""}`}>
-      <Code2 className="w-4 h-4 text-slate-400" />
-      <span className="text-slate-400 font-medium">Language:</span>
+    <div
+      className={`relative flex items-center gap-2 rounded-lg border border-line bg-surface px-2.5 py-1 text-xs ${
+        readOnly ? "opacity-70" : ""
+      }`}
+      title={readOnly ? "Read-only access" : "Change room language"}
+    >
+      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+        lang
+      </span>
       <select
         value={currentLang}
         onChange={handleChange}
         disabled={readOnly}
-        className={`bg-transparent text-slate-200 font-semibold focus:outline-none border-none py-0 pl-1 pr-6 ${
-          readOnly ? "cursor-not-allowed text-slate-400" : "cursor-pointer"
+        className={`cursor-pointer appearance-none bg-transparent pr-5 font-mono text-[11px] font-medium text-fg focus:outline-none ${
+          readOnly ? "cursor-not-allowed text-muted" : ""
         }`}
       >
         {LANGUAGES.map((lang) => (
-          <option key={lang.id} value={lang.id} className="bg-slate-900 text-slate-200">
+          <option key={lang.id} value={lang.id} className="bg-surface text-fg">
             {lang.label}
           </option>
         ))}
       </select>
+      <ChevronDown className="pointer-events-none absolute right-2 h-3 w-3 text-muted" />
+      <span className="sr-only">{active.label}</span>
     </div>
   );
 };
